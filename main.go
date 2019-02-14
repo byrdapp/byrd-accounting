@@ -19,6 +19,16 @@ var (
 // BookedInvoices - endpoint https://restapi.e-conomic.com/invoices/booked
 type BookedInvoices struct {
 	Collection []*BookedInvoice `json:"collection,omitempty"`
+	Pagination *Pagination      `json:"pagination,omitempty"`
+}
+
+// Pagination for getting more invoices
+type Pagination struct {
+	PageSize  int    `json:"pageSize,omitempty"`
+	Results   int    `json:"results,omitempty"` //Total results
+	FirstPage string `json:"firstPage,omitempty"`
+	NextPage  string `json:"nextPage,omitempty"`
+	LastPage  string `json:"lastPage,omitempty"`
 }
 
 // BookedInvoice - endpoint https://restapi.e-conomic.com/invoices/booked/:number
@@ -34,14 +44,15 @@ type BookedInvoice struct {
 
 // Lines -
 type Lines struct {
-	LineNumber  byte   `json:"lineNumber,omitempty"`  /*MUST be #2 on voice*/
-	Description string `json:"description,omitempty"` /*If this == dragonplan*/
-	Quantity    int    `json:"quantity,omitempty"`    /*Number of credits*/
+	LineNumber  byte    `json:"lineNumber,omitempty"`  /*MUST be #2 on voice*/
+	Description string  `json:"description,omitempty"` /*If this == dragonplan*/
+	Quantity    float32 `json:"quantity,omitempty"`    /*Number of credits*/
 }
 
 /**
  * 1. Get all invoiceNumbers => GET: /invoices/booked
- * 2. If DragonPlan set it to unlimited
+ * 2. Get all invoices by number => GET invoices/booked/{num}
+ * 3. Store Lines info ()
  */
 
 func main() {
@@ -55,7 +66,13 @@ func main() {
 	}
 
 	// For each invoices (BookedINvoices), fetch the corresponding specific invoice line /invoices/booked/{number}
-	getEconomicsBookedInvoice(invoices)
+	invoice, err := getEconomicsBookedInvoice(invoices)
+	if err != nil {
+		log.Fatalf("Couldnt get the booked invoices struct: %s", err)
+	}
+	_ = invoice
+	// fmt.Printf("%+v \n", invoice)
+
 }
 
 func getEconomicsBookedInvoices() (*BookedInvoices, error) {
@@ -66,25 +83,22 @@ func getEconomicsBookedInvoices() (*BookedInvoices, error) {
 	if err != nil {
 		return nil, err
 	}
-	printStructAsJSONText(invoices)
 	return &invoices, nil
 }
 
-func getEconomicsBookedInvoice(invoices *BookedInvoices) error {
+func getEconomicsBookedInvoice(invoices *BookedInvoices) (*BookedInvoice, error) {
 	invoice := BookedInvoice{}
-	_ = invoice
 	for idx, val := range invoices.Collection {
-		fmt.Println("Getting: ", idx, val.BookedInvoiceNumber)
-		url := ecoURL + "invoices/booked" + strconv.Itoa(val.BookedInvoiceNumber)
+		fmt.Printf("Getting #%s with invoiceNum: %s", strconv.Itoa(idx), strconv.Itoa(val.BookedInvoiceNumber))
+		url := ecoURL + "/invoices/booked/" + strconv.Itoa(val.BookedInvoiceNumber)
 		res := createReq(url)
 		err := json.NewDecoder(res.Body).Decode(&invoice)
 		if err != nil {
-			return err
+			return nil, err
 		}
-		printStructAsJSONText(invoices)
+		printStructAsJSONText(invoice.Lines)
 	}
-
-	return nil
+	return &invoice, nil
 }
 
 func createReq(url string) *http.Response {
