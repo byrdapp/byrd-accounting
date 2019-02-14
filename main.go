@@ -1,10 +1,12 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
+	"strconv"
 
 	"github.com/joho/godotenv"
 )
@@ -21,12 +23,12 @@ type BookedInvoices struct {
 
 // BookedInvoice - endpoint https://restapi.e-conomic.com/invoices/booked/:number
 type BookedInvoice struct {
-	BookedInvoiceNumber string   `json:"bookedInvoiceNumber,omitempty"`
+	BookedInvoiceNumber int      `json:"bookedInvoiceNumber,omitempty"`
 	Date                string   `json:"date,omitempty"`
 	Currency            string   `json:"currency,omitempty"`
-	NetAmount           int      `json:"netAmount,omitempty"`
-	GrossAmount         int      `json:"grossAmount,omitempty"`
-	VatAmount           int      `json:"vatAmount,omitempty"`
+	NetAmount           float32  `json:"netAmount,omitempty"`
+	GrossAmount         float32  `json:"grossAmount,omitempty"`
+	VatAmount           float32  `json:"vatAmount,omitempty"`
 	Lines               []*Lines `json:"lines,omitempty"`
 }
 
@@ -46,50 +48,70 @@ func main() {
 	if err := environment(); err != nil {
 		logger.Fatalf("Error with env: %s", err)
 	}
+	// Get economics invoices data requests => struct
+	invoices, err := getEconomicsBookedInvoices()
+	if err != nil {
+		log.Fatalf("Couldnt get the booked invoices struct: %s", err)
+	}
 
+	// For each invoices (BookedINvoices), fetch the corresponding specific invoice line /invoices/booked/{number}
+	getEconomicsBookedInvoice(invoices)
 }
 
-// func calculateTax(value float32) (float32, error) {
-// 	if value < 0 {
-// 		return 0, errors.New("Must be a pos int")
-// 	}
-// 	return value * 1.25, nil
-// }
-
 func getEconomicsBookedInvoices() (*BookedInvoices, error) {
-	url := ecoURL + "/invoices/booked"
 	invoices := BookedInvoices{}
-	res := createReqGetDecoder(url)
-	_ = res
+	url := ecoURL + "/invoices/booked"
+	res := createReq(url)
+	err := json.NewDecoder(res.Body).Decode(&invoices)
+	if err != nil {
+		return nil, err
+	}
+	printStructAsJSONText(invoices)
 	return &invoices, nil
 }
 
-func getEconomicsBookedInvoice() {
+func getEconomicsBookedInvoice(invoices *BookedInvoices) error {
 	invoice := BookedInvoice{}
 	_ = invoice
+	for idx, val := range invoices.Collection {
+		fmt.Println("Getting: ", idx, val.BookedInvoiceNumber)
+		url := ecoURL + "invoices/booked" + strconv.Itoa(val.BookedInvoiceNumber)
+		res := createReq(url)
+		err := json.NewDecoder(res.Body).Decode(&invoice)
+		if err != nil {
+			return err
+		}
+		printStructAsJSONText(invoices)
+	}
+
+	return nil
 }
 
-func createReqGetDecoder(url string) *http.Response {
+func createReq(url string) *http.Response {
 	client := &http.Client{}
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		log.Fatalf("Error with request setup: %s", err)
 	}
 	req.Header.Add("Content-Type", "application/json")
-	req.Header.Add("X-AppSecretToken", os.Getenv("X-AppSecretToken"))
+	req.Header.Add("X-AppSecretToken", os.Getenv("ECONOMIC_SECRET_TOKEN"))
 	req.Header.Add("X-AgreementGrantToken", os.Getenv("ECONOMIC_PUBLIC_TOKEN"))
 	res, err := client.Do(req)
 	if err != nil {
 		log.Fatalf("Error with client HTTP: %s", err)
 	}
-	defer res.Body.Close()
-	return nil
+	// defer res.Body.Close()
+	return res
 }
 
 func environment() error {
 	if err := godotenv.Load(); err != nil {
 		return err
 	}
-	fmt.Println("Loaded the .env file")
 	return nil
+}
+
+func printStructAsJSONText(i interface{}) {
+	format, _ := json.Marshal(i)
+	fmt.Println(string(format))
 }
