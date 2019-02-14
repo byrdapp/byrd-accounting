@@ -1,8 +1,12 @@
 package invoices
 
 import (
+	"encoding/json"
 	"fmt"
-	"strconv"
+	"log"
+	"os"
+
+	"github.com/jung-kurt/gofpdf"
 )
 
 const (
@@ -21,22 +25,61 @@ type PDFLines struct {
 	VAT                     float64
 }
 
-// WritePDF is an abstraction of the loop with real data
-func WritePDF(lines []*Lines, invoice *BookedInvoice) error {
-	for idx, line := range lines {
-		pdfLines := &PDFLines{
-			InvoiceNum:              invoice.BookedInvoiceNumber,
-			Recipient:               invoice.Recipient,
-			Date:                    invoice.Date,
-			PotentialCreditOutbound: line.potentialCreditOutbound(invoice),
-			PotentialAmountOutbound: line.potentialEuroAmountOutbound(invoice),
-			ByrdInc:                 line.byrdIncome(invoice),
-			VAT:                     line.applyTax(invoice),
+// WriteInvoicesPDF is an abstraction of the loop with real data
+func WriteInvoicesPDF(invoice *BookedInvoice, lines []*Lines) error {
+	pdf := gofpdf.New("P", "mm", "A4", "")
+	pdf.AddPage()
+	pdf.SetFont("Arial", "", 10)
+	pdf.SetTopMargin(30)
+	for _, line := range lines {
+		if line.LineNumber == creditLineNumber {
+			pdfLines := PDFLines{
+				InvoiceNum:              invoice.BookedInvoiceNumber,
+				Recipient:               invoice.Recipient,
+				Date:                    invoice.Date,
+				PotentialCreditOutbound: line.potentialCreditOutbound(invoice),
+				PotentialAmountOutbound: line.potentialEuroAmountOutbound(invoice),
+				ByrdInc:                 line.byrdIncome(invoice),
+				VAT:                     line.applyTax(invoice),
+			}
+			pdfJSON, _ := json.Marshal(pdfLines)
+			pdf.Cell(40, 10, string(pdfJSON)+"\n")
+			fmt.Printf("%+v\n", pdfLines)
 		}
-		fmt.Printf("Wrote line %s\n", strconv.Itoa(idx))
-		fmt.Printf("%+v\n", pdfLines)
+	}
+	if err := pdf.OutputFileAndClose("pdf.pdf"); err != nil {
+		logger.Fatalln(err)
 	}
 	return nil
+}
+
+// ExamplePdf -
+func ExamplePdf() {
+	pdf := gofpdf.New("P", "mm", "A4", "")
+	pdf.SetTopMargin(30)
+	pdf.SetHeaderFunc(func() {
+		pdf.SetY(5)
+		pdf.SetFont("Arial", "B", 15)
+		pdf.Cell(80, 0, "")
+		pdf.CellFormat(30, 10, "Title", "1", 0, "C", false, 0, "")
+		pdf.Ln(20)
+	})
+	pdf.SetFooterFunc(func() {
+		pdf.SetY(-15)
+		pdf.SetFont("Arial", "I", 8)
+		pdf.CellFormat(0, 10, fmt.Sprintf("Page %d/{nb}", pdf.PageNo()),
+			"", 0, "C", false, 0, "")
+	})
+	pdf.AliasNbPages("")
+	pdf.AddPage()
+	pdf.SetFont("Times", "", 12)
+	for j := 1; j <= 40; j++ {
+		pdf.CellFormat(0, 10, fmt.Sprintf("Printing line number %d", j),
+			"", 1, "", false, 0, "")
+	}
+	if err := pdf.OutputFileAndClose("ExamplePDF.pdf"); err != nil {
+		log.Fatalln(err)
+	}
 }
 
 // WritePDFHeader -
@@ -44,6 +87,12 @@ func writePDFHeader() {
 	headlines := make(map[string]string)
 	for _, val := range headlines {
 		_ = val
+	}
+}
+
+func mkdirPDF() {
+	if err := os.Mkdir("pdfs", 32); err != nil {
+		log.Fatalln(err)
 	}
 }
 

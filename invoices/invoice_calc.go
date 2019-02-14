@@ -2,7 +2,6 @@ package invoices
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -81,17 +80,14 @@ func InitInvoiceOutput() {
 	if err != nil {
 		log.Fatalf("Couldnt get the booked invoices: %s", err)
 	}
-
 	// For each invoices (BookedINvoices), fetch the corresponding specific invoice line /invoices/booked/{number}
-	invoice, err := getEconomicsBookedInvoice(invoices)
-	if err != nil {
+	if err := createPDFFromInvoice(invoices.Collection); err != nil {
 		log.Fatalf("Couldnt get the booked invoice: %s", err)
 	}
-	_ = invoice
 
 }
 
-func getEconomicsBookedInvoices() ([]*BookedInvoice, error) {
+func getEconomicsBookedInvoices() (*BookedInvoices, error) {
 	invoices := BookedInvoices{}
 	url := ecoURL + "/invoices/booked"
 	res := createReq(url)
@@ -99,46 +95,25 @@ func getEconomicsBookedInvoices() ([]*BookedInvoice, error) {
 	if err != nil {
 		return nil, err
 	}
-	return invoices.Collection, nil
+	return &invoices, nil
 }
 
-func getEconomicsBookedInvoice(invoices []*BookedInvoice) (*BookedInvoice, error) {
-	invoice := BookedInvoice{}
+func createPDFFromInvoice(invoices []*BookedInvoice) error {
+	invoice := &BookedInvoice{}
 	for idx, val := range invoices {
 		url := ecoURL + "/invoices/booked/" + strconv.Itoa(val.BookedInvoiceNumber)
 		res := createReq(url)
 		err := json.NewDecoder(res.Body).Decode(&invoice)
 		if err != nil {
-			return nil, err
-		}
-		lines, err := getLineCreditValues(&invoice)
-		if err != nil {
-			log.Panicf("Couldnt get the line values: %s", err)
-		}
-
-		// Set PDFData values based on invoice values
-		if err := WritePDF(lines, &invoice); err != nil {
-			log.Fatalf("Couldn't write PDF :-(: %s", err)
+			return err
 		}
 		fmt.Printf("Got #%s invoice with customer: %s\n", strconv.Itoa(idx), val.Recipient.Name)
-	}
-	return &invoice, nil
-}
-
-func getLineCreditValues(invoice *BookedInvoice) ([]*Lines, error) {
-	numOfLines := len(invoice.Lines)
-	lines := []*Lines{}
-	if numOfLines < creditLineNumber {
-		return nil, errors.New("There's no booking of credit amount on this invoice")
-	}
-	for _, val := range invoice.Lines {
-		if val.LineNumber == creditLineNumber {
-			// fmt.Printf("This line: %v has credits: %v\n", val.Description, val.CreditQuantity)
-			lines = append(lines, val)
+		// Set PDFData values based on invoice values
+		if err := WriteInvoicesPDF(invoice, invoice.Lines); err != nil {
+			log.Fatalf("Couldn't write PDF :-(: %s", err)
 		}
 	}
-	fmt.Printf("%+v\n", lines)
-	return lines, nil
+	return nil
 }
 
 func createReq(url string) *http.Response {
