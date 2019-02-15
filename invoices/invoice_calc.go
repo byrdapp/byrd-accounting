@@ -64,6 +64,11 @@ const (
 	photographerCut  = 15
 )
 
+// SayHelloEveryMinute TEST
+func SayHelloEveryMinute() {
+	log.Println("Hello world!")
+}
+
 /**
  * 1. Get all invoiceNumbers => GET: /invoices/booked
  * 2. Get all invoices by number => GET invoices/booked/{num}
@@ -71,20 +76,23 @@ const (
  */
 
 // InitInvoiceOutput starts the whole thing :-)
-func InitInvoiceOutput() {
+func InitInvoiceOutput() error {
 	if err := environment(); err != nil {
 		logger.Fatalf("Error with env: %s", err)
+		return err
 	}
 	// Get economics invoices data requests => struct
 	invoices, err := getEconomicsBookedInvoices()
 	if err != nil {
 		log.Fatalf("Couldnt get the booked invoices: %s", err)
+		return err
 	}
 	// For each invoices (BookedINvoices), fetch the corresponding specific invoice line /invoices/booked/{number}
 	if err := createPDFFromInvoice(invoices.Collection); err != nil {
 		log.Fatalf("Couldnt get the booked invoice: %s", err)
+		return err
 	}
-
+	return nil
 }
 
 func getEconomicsBookedInvoices() (*BookedInvoices, error) {

@@ -1,10 +1,19 @@
 package main
 
 import (
-	"github.com/byblix/byrd-accounting/invoices"
+	"github.com/byblix/byrd-accounting/server"
 )
 
 func main() {
+
+	/**
+	 * Run shellscript: $ sh run.sh
+	 */
+
+	// invoices.ExamplePdf()
 	// invoices.InitInvoiceOutput()
-	invoices.ExamplePdf()
+	server.Start()
+	// if err := server.Uploader("pdf.pdf"); err != nil {
+	// 	log.Fatalln(err)
+	// }
 }
