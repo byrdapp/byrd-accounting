@@ -30,9 +30,17 @@ func Start() {
 // Handler -
 func Handler() (*Response, error) {
 	res := &Response{
-		Message: "Lol",
+		Message: "Created pdf #",
 		Ok:      true,
 	}
+
+	/**
+	 * 1. Get all invoices from for the previous month
+	 * 2. Convert to PDF
+	 * 3. Upload to S3
+	 * 4. Log("Success") or error
+	 */
+
 	return res, nil
 
 }

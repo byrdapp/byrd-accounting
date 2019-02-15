@@ -64,11 +64,6 @@ const (
 	photographerCut  = 15
 )
 
-// SayHelloEveryMinute TEST
-func SayHelloEveryMinute() {
-	log.Println("Hello world!")
-}
-
 /**
  * 1. Get all invoiceNumbers => GET: /invoices/booked
  * 2. Get all invoices by number => GET invoices/booked/{num}
