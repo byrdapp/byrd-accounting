@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 
+	"github.com/byblix/byrd-accounting/server"
 	"github.com/jung-kurt/gofpdf"
 )
 
@@ -76,8 +77,12 @@ func ExamplePdf() {
 		pdf.CellFormat(0, 10, fmt.Sprintf("Lolololo lol olo: %v", j),
 			"", 1, "", false, 0, "")
 	}
-	if err := pdf.OutputFileAndClose("ExamplePDF.pdf"); err != nil {
+	if err := pdf.OutputFileAndClose("02-2020.pdf"); err != nil {
 		log.Fatalln(err)
+	}
+
+	if err := server.NewUpload("02-2020.pdf"); err != nil {
+		log.Panicf("Error: %s", err)
 	}
 }
 

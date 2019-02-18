@@ -16,8 +16,9 @@ func main() {
 	if err := environment(); err != nil {
 		log.Fatalf("Error with env: %s", err)
 	}
-	// invoices.ExamplePdf()
-	invoices.InitInvoiceOutput()
+
+	invoices.ExamplePdf()
+	// invoices.InitInvoiceOutput()
 	// server.Start()
 	// if err := server.Uploader("pdf.pdf"); err != nil {
 	// 	log.Fatalln(err)

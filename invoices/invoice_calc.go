@@ -70,17 +70,12 @@ const (
 	photographerCut  = 15
 )
 
-/**
- * 1. Get all invoiceNumbers => GET: /invoices/booked
- * 2. Get all invoices by number => GET invoices/booked/{num}
- * 3. Store Lines info ()
- */
-
 // InitInvoiceOutput starts the whole thing :-)
 func InitInvoiceOutput() error {
 	// Get economics invoices data requests => struct
-	hourAgo := getDayAgo()
-	invoices, err := getEconomicsBookedInvoices(hourAgo)
+	d := &DateRange{}
+	interval := d.setDateRange()
+	invoices, err := getEconomicsBookedInvoices(interval)
 	if err != nil {
 		log.Fatalf("Couldnt get the booked invoices: %s", err)
 		return err
@@ -93,22 +88,12 @@ func InitInvoiceOutput() error {
 	return nil
 }
 
-func (d *DateRange) setDateRange(from string, to string) string {
-	dates := &DateRange{
-		From:  from,
-		To:    to,
-		Query: "date$gte:" + from + "$and:date$lte:" + to,
-	}
-	return dates.Query
-}
-
-func getEconomicsBookedInvoices(date string) (*BookedInvoices, error) {
+func getEconomicsBookedInvoices(query string) (*BookedInvoices, error) {
 	//syntax: https://restdocs.e-conomic.com/#filter-operators
 	// combined mongo query ex.: date$gte:2018-01-01$and:date$lte:2018-01-09
 	invoices := BookedInvoices{}
 	url := ecoURL + "/invoices/booked"
-	params := "date$lte:" + date
-	res := createReq(url, params)
+	res := createReq(url, query)
 	err := json.NewDecoder(res.Body).Decode(&invoices)
 	if err != nil {
 		return nil, err
@@ -165,6 +150,23 @@ func getDayAgo() string {
 	t.Add(-hour)
 	t.Format("20060102")
 	return t.String()[:10]
+}
+
+func getMonthAgo() string {
+	t := time.Now().UTC()
+	then := t.AddDate(0, -1, 0)
+	then.Format("20060102")
+	return then.String()[:10]
+}
+
+func (d *DateRange) setDateRange() string {
+	dates := DateRange{
+		From: getDayAgo(),
+		To:   getMonthAgo(),
+	}
+	dates.Query = "date$gte:" + dates.From + "$and:date$lte:" + dates.To
+	fmt.Printf("Interval from: %s\n to: %s\n", dates.From, dates.To)
+	return dates.Query
 }
 
 func printStructAsJSONText(i interface{}) {
