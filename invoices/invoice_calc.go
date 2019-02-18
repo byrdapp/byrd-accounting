@@ -7,8 +7,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
-
-	"github.com/joho/godotenv"
+	"time"
 )
 
 // BookedInvoices - endpoint https://restapi.e-conomic.com/invoices/booked
@@ -54,6 +53,13 @@ type Lines struct {
 	CreditQuantity float64 `json:"quantity,omitempty"`    /*Number of credits*/
 }
 
+// DateRange -
+type DateRange struct {
+	From  string
+	To    string
+	Query string
+}
+
 var (
 	logger *log.Logger
 	ecoURL = "https://restapi.e-conomic.com"
@@ -72,12 +78,9 @@ const (
 
 // InitInvoiceOutput starts the whole thing :-)
 func InitInvoiceOutput() error {
-	if err := environment(); err != nil {
-		logger.Fatalf("Error with env: %s", err)
-		return err
-	}
 	// Get economics invoices data requests => struct
-	invoices, err := getEconomicsBookedInvoices()
+	hourAgo := getDayAgo()
+	invoices, err := getEconomicsBookedInvoices(hourAgo)
 	if err != nil {
 		log.Fatalf("Couldnt get the booked invoices: %s", err)
 		return err
@@ -90,10 +93,22 @@ func InitInvoiceOutput() error {
 	return nil
 }
 
-func getEconomicsBookedInvoices() (*BookedInvoices, error) {
+func (d *DateRange) setDateRange(from string, to string) string {
+	dates := &DateRange{
+		From:  from,
+		To:    to,
+		Query: "date$gte:" + from + "$and:date$lte:" + to,
+	}
+	return dates.Query
+}
+
+func getEconomicsBookedInvoices(date string) (*BookedInvoices, error) {
+	//syntax: https://restdocs.e-conomic.com/#filter-operators
+	// combined mongo query ex.: date$gte:2018-01-01$and:date$lte:2018-01-09
 	invoices := BookedInvoices{}
 	url := ecoURL + "/invoices/booked"
-	res := createReq(url)
+	params := "date$lte:" + date
+	res := createReq(url, params)
 	err := json.NewDecoder(res.Body).Decode(&invoices)
 	if err != nil {
 		return nil, err
@@ -105,7 +120,7 @@ func createPDFFromInvoice(invoices []*BookedInvoice) error {
 	invoice := &BookedInvoice{}
 	for idx, val := range invoices {
 		url := ecoURL + "/invoices/booked/" + strconv.Itoa(val.BookedInvoiceNumber)
-		res := createReq(url)
+		res := createReq(url, "")
 		err := json.NewDecoder(res.Body).Decode(&invoice)
 		if err != nil {
 			return err
@@ -119,16 +134,24 @@ func createPDFFromInvoice(invoices []*BookedInvoice) error {
 	return nil
 }
 
-func createReq(url string) *http.Response {
+func createReq(url string, params string) *http.Response {
 	client := &http.Client{}
 	req, err := http.NewRequest("GET", url, nil)
+	header := &req.Header
+	query := req.URL.Query()
 	if err != nil {
 		log.Fatalf("Error with request setup: %s", err)
 	}
-	req.Header.Add("Content-Type", "application/json")
-	req.Header.Add("X-AppSecretToken", os.Getenv("ECONOMIC_SECRET_TOKEN"))
-	req.Header.Add("X-AgreementGrantToken", os.Getenv("ECONOMIC_PUBLIC_TOKEN"))
+	header.Add("Content-Type", "application/json")
+	header.Add("X-AppSecretToken", os.Getenv("ECONOMIC_SECRET_TOKEN"))
+	header.Add("X-AgreementGrantToken", os.Getenv("ECONOMIC_PUBLIC_TOKEN"))
+	query.Add("sort", "date")
+	if params != "" {
+		query.Add("filter", params)
+	}
+	req.URL.RawQuery = query.Encode()
 	res, err := client.Do(req)
+	fmt.Println(req.URL.String())
 	if err != nil {
 		log.Fatalf("Error with client HTTP: %s", err)
 	}
@@ -136,11 +159,12 @@ func createReq(url string) *http.Response {
 	return res
 }
 
-func environment() error {
-	if err := godotenv.Load(); err != nil {
-		return err
-	}
-	return nil
+func getDayAgo() string {
+	t := time.Now().UTC()
+	hour := time.Hour
+	t.Add(-hour)
+	t.Format("20060102")
+	return t.String()[:10]
 }
 
 func printStructAsJSONText(i interface{}) {
