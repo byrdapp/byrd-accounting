@@ -46,7 +46,6 @@ func uploader(s *session.Session, fileDir string) error {
 	stats, _ := file.Stat()
 	size := stats.Size()
 	buffer := make([]byte, size)
-	file.Read(buffer)
 	result, err := uploader.Upload(&s3manager.UploadInput{
 		Body:                 file,
 		Bucket:               aws.String(s3Bucket),
