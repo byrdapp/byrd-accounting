@@ -8,6 +8,8 @@ import (
 	"os"
 	"strconv"
 	"time"
+
+	"github.com/byblix/byrd-accounting/server"
 )
 
 // BookedInvoices - endpoint https://restapi.e-conomic.com/invoices/booked
@@ -81,8 +83,13 @@ func InitInvoiceOutput() error {
 		return err
 	}
 	// For each invoices (BookedINvoices), fetch the corresponding specific invoice line /invoices/booked/{number}
-	if err := createPDFFromInvoice(invoices.Collection); err != nil {
-		log.Fatalf("Couldnt get the booked invoice: %s", err)
+	fileName, err := createPDFFromInvoice(invoices.Collection)
+	if err != nil {
+		log.Fatalf("Couldnt create PDF with http: %s", err)
+		return err
+	}
+	if err := server.NewUpload(fileName); err != nil {
+		log.Fatalf("couldt upload to server: %s", err)
 		return err
 	}
 	return nil
@@ -101,22 +108,23 @@ func getEconomicsBookedInvoices(query string) (*BookedInvoices, error) {
 	return &invoices, nil
 }
 
-func createPDFFromInvoice(invoices []*BookedInvoice) error {
+func createPDFFromInvoice(invoices []*BookedInvoice) (string, error) {
 	invoice := &BookedInvoice{}
 	for idx, val := range invoices {
 		url := ecoURL + "/invoices/booked/" + strconv.Itoa(val.BookedInvoiceNumber)
 		res := createReq(url, "")
 		err := json.NewDecoder(res.Body).Decode(&invoice)
 		if err != nil {
-			return err
+			return "", err
 		}
 		fmt.Printf("Got #%s invoice with customer: %s\n", strconv.Itoa(idx), val.Recipient.Name)
 		// Set PDFData values based on invoice values
-		if err := WriteInvoicesPDF(invoice, invoice.Lines); err != nil {
-			log.Fatalf("Couldn't write PDF :-(: %s", err)
-		}
 	}
-	return nil
+	fileName, err := WriteInvoicesPDF(invoice, invoice.Lines, getMonthAgo())
+	if err != nil {
+		return "", err
+	}
+	return fileName, nil
 }
 
 func createReq(url string, params string) *http.Response {

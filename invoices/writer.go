@@ -27,7 +27,7 @@ type PDFLines struct {
 }
 
 // WriteInvoicesPDF is an abstraction of the loop with real data
-func WriteInvoicesPDF(invoice *BookedInvoice, lines []*Lines) error {
+func WriteInvoicesPDF(invoice *BookedInvoice, lines []*Lines, dateStamp string) (string, error) {
 	pdf := gofpdf.New("P", "mm", "A4", "")
 	pdf.AddPage()
 	pdf.SetFont("Arial", "", 10)
@@ -48,10 +48,11 @@ func WriteInvoicesPDF(invoice *BookedInvoice, lines []*Lines) error {
 			fmt.Printf("%+v\n", pdfLines)
 		}
 	}
-	if err := pdf.OutputFileAndClose("pdf.pdf"); err != nil {
-		logger.Fatalln(err)
+	fileName := dateStamp[:7] + ".pdf"
+	if err := pdf.OutputFileAndClose(fileName); err != nil {
+		return "", err
 	}
-	return nil
+	return fileName, nil
 }
 
 // ExamplePdf -

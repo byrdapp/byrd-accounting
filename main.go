@@ -10,19 +10,17 @@ import (
 func main() {
 
 	/**
-	 * Run shellscript: $ sh run.sh
+	 * Run shellscript: $ sh run.sh for docker deploy
 	 */
 
 	if err := environment(); err != nil {
 		log.Fatalf("Error with env: %s", err)
 	}
 
-	invoices.ExamplePdf()
-	// invoices.InitInvoiceOutput()
+	if err := invoices.InitInvoiceOutput(); err != nil {
+		log.Fatalf("Error occurred: %s", err)
+	}
 	// server.Start()
-	// if err := server.Uploader("pdf.pdf"); err != nil {
-	// 	log.Fatalln(err)
-	// }
 }
 
 func environment() error {
