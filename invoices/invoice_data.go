@@ -79,9 +79,9 @@ const (
 
 // InitInvoiceOutput starts the whole thing :-)
 func InitInvoiceOutput() error {
-	// d := &DateRange{}
-	interval := "date$gte:2019-02-13$and:date$lte:2019-02-28"
-	// interval := d.setDateRange()
+	// testinterval := "date$gte:2019-02-13$and:date$lte:2019-02-28"
+	d := &DateRange{}
+	interval := d.setDateRange()
 	invoices, err := getEconomicsBookedInvoices(interval)
 	if err != nil {
 		log.Fatalf("Couldnt get the booked invoices: %s", err)
@@ -185,8 +185,8 @@ func getMonthAgo() string {
 
 func (d *DateRange) setDateRange() string {
 	dates := DateRange{
-		From: getDayAgo(),
-		To:   getMonthAgo(),
+		From: getMonthAgo(),
+		To:   getDayAgo(),
 	}
 	dates.Query = "date$gte:" + dates.From + "$and:date$lte:" + dates.To
 	fmt.Printf("Interval from: %s\n to: %s\n", dates.From, dates.To)

@@ -96,7 +96,6 @@ func writeBody(pdf *gofpdf.Fpdf, pdfLines []*PDFLines) *gofpdf.Fpdf {
 		pdf.Cell(30, 10, formatFloat(line.MinByrdInc))
 		pdf.Cell(30, 10, formatFloat(line.VAT))
 		pdf.Cell(30, 10, formatFloat(line.TotalNetAmount+line.VAT))
-
 		pdf.Ln(6)
 		fmt.Printf("Wrote invoice#: %v to customer: %s\n", line.InvoiceNum, line.Recipient.Name)
 	}
