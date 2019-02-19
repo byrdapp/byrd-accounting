@@ -1,12 +1,10 @@
 package invoices
 
 import (
-	"encoding/json"
 	"fmt"
-	"log"
-	"os"
+	"strconv"
+	"time"
 
-	"github.com/byblix/byrd-accounting/server"
 	"github.com/jung-kurt/gofpdf"
 )
 
@@ -21,84 +19,105 @@ type PDFLines struct {
 	Recipient               *Recipient
 	Date                    string
 	PotentialCreditOutbound float64
-	PotentialAmountOutbound float64
+	PotentialSellerCut      float64
 	ByrdInc                 float64
+	TotalPrice              float64
 	VAT                     float64
 }
 
-// WriteInvoicesPDF is an abstraction of the loop with real data
-func WriteInvoicesPDF(invoice *BookedInvoice, lines []*Lines, dateStamp string) (string, error) {
-	pdf := gofpdf.New("P", "mm", "A4", "")
+// WriteInvoicesPDF (abstraction) creates PDF from data
+func WriteInvoicesPDF(invoices []*BookedInvoice, dateStamp string) (string, error) {
+	pdfLines := destructValues(invoices)
+	pdf := newPDF()
+	pdf = writeHeader(pdf, []string{"Invoice#", "Date", "Customer", "Country", "VAT", "Seller cut", "Byrds cut", "Total price"})
+	pdf = writeBody(pdf, pdfLines)
+	pdf = writeFooter(pdf)
+	// Write footer with page #
+	fileName, err := createPDF(pdf, dateStamp)
+	if err != nil {
+		return "", err
+	}
+	fmt.Println("Created PDF")
+	return fileName, nil
+}
+
+func newPDF() *gofpdf.Fpdf {
+	pdf := gofpdf.New("L", "mm", "Letter", "")
 	pdf.AddPage()
-	pdf.SetFont("Arial", "", 10)
-	pdf.SetTopMargin(30)
-	for _, line := range lines {
-		if line.LineNumber == creditLineNumber {
-			pdfLines := PDFLines{
-				InvoiceNum:              invoice.BookedInvoiceNumber,
-				Recipient:               invoice.Recipient,
-				Date:                    invoice.Date,
-				PotentialCreditOutbound: line.potentialCreditOutbound(invoice),
-				PotentialAmountOutbound: line.potentialEuroAmountOutbound(invoice),
-				ByrdInc:                 line.byrdIncome(invoice),
-				VAT:                     line.applyTax(invoice),
+	pdf.SetFont("Times", "B", 16)
+	pdf.Cell(30, 10, "Media usage report")
+	pdf.Ln(10)
+	pdf.SetFont("Times", "", 10)
+	pdf.Cell(30, 10, "Generated: "+time.Now().Format("Mon Jan 2, 2006"))
+	pdf.ImageOptions("byrd.png", 225, 5, 25, 25, false, gofpdf.ImageOptions{ImageType: "PNG", ReadDpi: true}, 0, "")
+	pdf.Ln(14)
+	return pdf
+}
+
+func writeHeader(pdf *gofpdf.Fpdf, hdr []string) *gofpdf.Fpdf {
+	pdf.SetFont("Times", "B", 10)
+	pdf.SetFillColor(240, 240, 240)
+	for _, str := range hdr {
+		pdf.CellFormat(30, 7, str, "1", 0, "", true, 0, "")
+	}
+	pdf.Ln(-1)
+	return pdf
+}
+
+func destructValues(invoices []*BookedInvoice) []*PDFLines {
+	pdfLines := []*PDFLines{}
+	for _, invoice := range invoices {
+		for _, line := range invoice.Lines {
+			if line.LineNumber == creditLineNumber {
+				pdfLine := PDFLines{
+					InvoiceNum:              invoice.BookedInvoiceNumber,
+					Recipient:               invoice.Recipient,
+					Date:                    invoice.Date,
+					TotalPrice:              invoice.GrossAmount,
+					PotentialCreditOutbound: line.potentialCreditOutbound(invoice),
+					PotentialSellerCut:      line.potentialEuroAmountOutbound(invoice),
+					ByrdInc:                 line.byrdIncome(invoice),
+					VAT:                     line.applyTax(invoice),
+				}
+				pdfLines = append(pdfLines, &pdfLine)
+				fmt.Println(pdfLine.Recipient.Name)
 			}
-			pdfJSON, _ := json.Marshal(pdfLines)
-			pdf.Cell(40, 10, string(pdfJSON)+"\n")
-			fmt.Printf("%+v\n", pdfLines)
 		}
 	}
+	return pdfLines
+}
+
+func writeBody(pdf *gofpdf.Fpdf, pdfLines []*PDFLines) *gofpdf.Fpdf {
+	for _, line := range pdfLines {
+		pdf.SetFont("Times", "", 10)
+		pdf.SetFillColor(255, 255, 255)
+		pdf.Cell(30, 10, strconv.Itoa(line.InvoiceNum))
+		pdf.Cell(30, 10, line.Date)
+		pdf.Cell(30, 10, line.Recipient.Name)
+		pdf.Cell(30, 10, line.Recipient.Country)
+		if line.Recipient.Country == denmark {
+			pdf.Cell(30, 10, formatFloat(line.VAT))
+		} else {
+			pdf.Cell(30, 10, "0")
+		}
+		pdf.Cell(30, 10, formatFloat(line.PotentialSellerCut))
+
+		pdf.Ln(10)
+		fmt.Printf("Wrote invoice#: %v to customer: %s\n", line.InvoiceNum, line.Recipient.Name)
+	}
+	return pdf
+}
+
+func writeFooter(pdf *gofpdf.Fpdf) *gofpdf.Fpdf {
+	return pdf
+}
+
+func createPDF(pdf *gofpdf.Fpdf, dateStamp string) (string, error) {
 	fileName := dateStamp[:7] + ".pdf"
 	if err := pdf.OutputFileAndClose(fileName); err != nil {
 		return "", err
 	}
 	return fileName, nil
-}
-
-// ExamplePdf -
-func ExamplePdf() {
-	pdf := gofpdf.New("P", "mm", "A4", "")
-	pdf.SetTopMargin(30)
-	pdf.SetHeaderFunc(func() {
-		pdf.SetY(5)
-		pdf.SetFont("Arial", "B", 16)
-		pdf.Cell(30, 10, "Byrd Accounting")
-		pdf.Ln(20)
-	})
-	pdf.SetFooterFunc(func() {
-		pdf.SetY(-10)
-		pdf.SetFont("Arial", "I", 6)
-		pdf.CellFormat(0, 10, fmt.Sprintf("Page %d/{nb}", pdf.PageNo()),
-			"", 0, "C", false, 0, "")
-	})
-	pdf.AliasNbPages("")
-	pdf.AddPage()
-	pdf.SetFont("Times", "", 12)
-	for j := 1; j <= 10; j++ {
-		pdf.CellFormat(0, 10, fmt.Sprintf("Lolololo lol olo: %v", j),
-			"", 1, "", false, 0, "")
-	}
-	if err := pdf.OutputFileAndClose("02-2020.pdf"); err != nil {
-		log.Fatalln(err)
-	}
-
-	if err := server.NewUpload("02-2020.pdf"); err != nil {
-		log.Panicf("Error: %s", err)
-	}
-}
-
-// WritePDFHeader -
-func writePDFHeader() {
-	headlines := make(map[string]string)
-	for _, val := range headlines {
-		_ = val
-	}
-}
-
-func mkdirPDF() {
-	if err := os.Mkdir("pdfs", 32); err != nil {
-		log.Fatalln(err)
-	}
 }
 
 func (v *Lines) potentialCreditOutbound(i *BookedInvoice) float64 {
@@ -118,4 +137,8 @@ func (v *Lines) applyTax(i *BookedInvoice) float64 {
 		return i.VatAmount
 	}
 	return 0
+}
+
+func formatFloat(n float64) string {
+	return strconv.FormatFloat(n, 'f', 2, 64)
 }

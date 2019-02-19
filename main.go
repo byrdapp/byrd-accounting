@@ -20,7 +20,6 @@ func main() {
 	if err := invoices.InitInvoiceOutput(); err != nil {
 		log.Fatalf("Error occurred: %s", err)
 	}
-	// server.Start()
 }
 
 func environment() error {

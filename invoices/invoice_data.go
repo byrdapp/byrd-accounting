@@ -14,8 +14,13 @@ import (
 
 // BookedInvoices - endpoint https://restapi.e-conomic.com/invoices/booked
 type BookedInvoices struct {
-	Collection []*BookedInvoice `json:"collection,omitempty"`
-	Pagination *Pagination      `json:"pagination,omitempty"`
+	Collection []*BookedInvoiceNumber `json:"collection,omitempty"`
+	Pagination *Pagination            `json:"pagination,omitempty"`
+}
+
+// BookedInvoiceNumber -
+type BookedInvoiceNumber struct {
+	BookedInvoiceNumber int `json:"bookedInvoiceNumber,omitempty"`
 }
 
 // Pagination for getting more invoices
@@ -74,16 +79,21 @@ const (
 
 // InitInvoiceOutput starts the whole thing :-)
 func InitInvoiceOutput() error {
-	// Get economics invoices data requests => struct
-	d := &DateRange{}
-	interval := d.setDateRange()
+	// d := &DateRange{}
+	interval := "date$gte:2019-02-13$and:date$lte:2019-02-28"
+	// interval := d.setDateRange()
 	invoices, err := getEconomicsBookedInvoices(interval)
 	if err != nil {
 		log.Fatalf("Couldnt get the booked invoices: %s", err)
 		return err
 	}
+
+	specificInvoices, err := getSpecificEcoBookedInvoices(invoices.Collection)
+	if err != nil {
+		log.Fatalf("Error with getting specific invoice: %s", err)
+	}
 	// For each invoices (BookedINvoices), fetch the corresponding specific invoice line /invoices/booked/{number}
-	fileName, err := createPDFFromInvoice(invoices.Collection)
+	fileName, err := createPDFFromInvoice(specificInvoices)
 	if err != nil {
 		log.Fatalf("Couldnt create PDF with http: %s", err)
 		return err
@@ -108,19 +118,24 @@ func getEconomicsBookedInvoices(query string) (*BookedInvoices, error) {
 	return &invoices, nil
 }
 
-func createPDFFromInvoice(invoices []*BookedInvoice) (string, error) {
-	invoice := &BookedInvoice{}
-	for idx, val := range invoices {
-		url := ecoURL + "/invoices/booked/" + strconv.Itoa(val.BookedInvoiceNumber)
+func getSpecificEcoBookedInvoices(invoiceNums []*BookedInvoiceNumber) ([]*BookedInvoice, error) {
+	invoice := BookedInvoice{}
+	specificInvoices := []*BookedInvoice{}
+	for _, num := range invoiceNums {
+		url := ecoURL + "/invoices/booked/" + strconv.Itoa(num.BookedInvoiceNumber)
 		res := createReq(url, "")
 		err := json.NewDecoder(res.Body).Decode(&invoice)
 		if err != nil {
-			return "", err
+			return nil, err
 		}
-		fmt.Printf("Got #%s invoice with customer: %s\n", strconv.Itoa(idx), val.Recipient.Name)
 		// Set PDFData values based on invoice values
+		specificInvoices = append(specificInvoices, &invoice)
 	}
-	fileName, err := WriteInvoicesPDF(invoice, invoice.Lines, getMonthAgo())
+	return specificInvoices, nil
+}
+
+func createPDFFromInvoice(invoices []*BookedInvoice) (string, error) {
+	fileName, err := WriteInvoicesPDF(invoices, getMonthAgo())
 	if err != nil {
 		return "", err
 	}
@@ -162,9 +177,9 @@ func getDayAgo() string {
 
 func getMonthAgo() string {
 	t := time.Now().UTC()
-	then := t.AddDate(0, -1, 0)
-	then.Format("20060102")
-	return then.String()[:10]
+	month := t.AddDate(0, -1, 0)
+	month.Format("20060102")
+	return month.String()[:10]
 }
 
 func (d *DateRange) setDateRange() string {
@@ -181,3 +196,4 @@ func printStructAsJSONText(i interface{}) {
 	format, _ := json.Marshal(i)
 	fmt.Println(string(format))
 }
+
