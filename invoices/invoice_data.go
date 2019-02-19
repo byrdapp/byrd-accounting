@@ -119,17 +119,18 @@ func getEconomicsBookedInvoices(query string) (*BookedInvoices, error) {
 }
 
 func getSpecificEcoBookedInvoices(invoiceNums []*BookedInvoiceNumber) ([]*BookedInvoice, error) {
-	invoice := BookedInvoice{}
 	specificInvoices := []*BookedInvoice{}
 	for _, num := range invoiceNums {
+		invoice := &BookedInvoice{}
 		url := ecoURL + "/invoices/booked/" + strconv.Itoa(num.BookedInvoiceNumber)
 		res := createReq(url, "")
 		err := json.NewDecoder(res.Body).Decode(&invoice)
 		if err != nil {
 			return nil, err
 		}
+		fmt.Println(invoice.BookedInvoiceNumber)
 		// Set PDFData values based on invoice values
-		specificInvoices = append(specificInvoices, &invoice)
+		specificInvoices = append(specificInvoices, invoice)
 	}
 	return specificInvoices, nil
 }
@@ -196,4 +197,3 @@ func printStructAsJSONText(i interface{}) {
 	format, _ := json.Marshal(i)
 	fmt.Println(string(format))
 }
-

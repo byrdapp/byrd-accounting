@@ -15,21 +15,20 @@ const (
 
 // PDFLines -
 type PDFLines struct {
-	InvoiceNum              int
-	Recipient               *Recipient
-	Date                    string
-	PotentialCreditOutbound float64
-	PotentialSellerCut      float64
-	ByrdInc                 float64
-	TotalPrice              float64
-	VAT                     float64
+	InvoiceNum     int
+	Recipient      *Recipient
+	Date           string
+	MaxSellerCut   float64
+	MinByrdInc     float64
+	TotalNetAmount float64
+	VAT            float64
 }
 
 // WriteInvoicesPDF (abstraction) creates PDF from data
 func WriteInvoicesPDF(invoices []*BookedInvoice, dateStamp string) (string, error) {
 	pdfLines := destructValues(invoices)
 	pdf := newPDF()
-	pdf = writeHeader(pdf, []string{"Invoice#", "Date", "Customer", "Country", "VAT", "Seller cut", "Byrds cut", "Total price"})
+	pdf = writeHeader(pdf, []string{"Invoice#", "Date", "Customer", "Country", "Max seller cut", "Min. Byrd cut", "VAT", "Total price"})
 	pdf = writeBody(pdf, pdfLines)
 	pdf = writeFooter(pdf)
 	// Write footer with page #
@@ -69,18 +68,16 @@ func destructValues(invoices []*BookedInvoice) []*PDFLines {
 	for _, invoice := range invoices {
 		for _, line := range invoice.Lines {
 			if line.LineNumber == creditLineNumber {
-				pdfLine := PDFLines{
-					InvoiceNum:              invoice.BookedInvoiceNumber,
-					Recipient:               invoice.Recipient,
-					Date:                    invoice.Date,
-					TotalPrice:              invoice.GrossAmount,
-					PotentialCreditOutbound: line.potentialCreditOutbound(invoice),
-					PotentialSellerCut:      line.potentialEuroAmountOutbound(invoice),
-					ByrdInc:                 line.byrdIncome(invoice),
-					VAT:                     line.applyTax(invoice),
+				pdfLine := &PDFLines{
+					InvoiceNum:     invoice.BookedInvoiceNumber,
+					Recipient:      invoice.Recipient,
+					Date:           invoice.Date,
+					MaxSellerCut:   line.maxSellerCut(invoice),
+					MinByrdInc:     line.minByrdInc(invoice),
+					VAT:            line.applyTax(invoice),
+					TotalNetAmount: invoice.NetAmount,
 				}
-				pdfLines = append(pdfLines, &pdfLine)
-				fmt.Println(pdfLine.Recipient.Name)
+				pdfLines = append(pdfLines, pdfLine)
 			}
 		}
 	}
@@ -88,21 +85,19 @@ func destructValues(invoices []*BookedInvoice) []*PDFLines {
 }
 
 func writeBody(pdf *gofpdf.Fpdf, pdfLines []*PDFLines) *gofpdf.Fpdf {
+	pdf.SetFont("Times", "", 10)
+	pdf.SetFillColor(255, 255, 255)
 	for _, line := range pdfLines {
-		pdf.SetFont("Times", "", 10)
-		pdf.SetFillColor(255, 255, 255)
 		pdf.Cell(30, 10, strconv.Itoa(line.InvoiceNum))
 		pdf.Cell(30, 10, line.Date)
 		pdf.Cell(30, 10, line.Recipient.Name)
 		pdf.Cell(30, 10, line.Recipient.Country)
-		if line.Recipient.Country == denmark {
-			pdf.Cell(30, 10, formatFloat(line.VAT))
-		} else {
-			pdf.Cell(30, 10, "0")
-		}
-		pdf.Cell(30, 10, formatFloat(line.PotentialSellerCut))
+		pdf.Cell(30, 10, formatFloat(line.MaxSellerCut))
+		pdf.Cell(30, 10, formatFloat(line.MinByrdInc))
+		pdf.Cell(30, 10, formatFloat(line.VAT))
+		pdf.Cell(30, 10, formatFloat(line.TotalNetAmount+line.VAT))
 
-		pdf.Ln(10)
+		pdf.Ln(6)
 		fmt.Printf("Wrote invoice#: %v to customer: %s\n", line.InvoiceNum, line.Recipient.Name)
 	}
 	return pdf
@@ -120,16 +115,16 @@ func createPDF(pdf *gofpdf.Fpdf, dateStamp string) (string, error) {
 	return fileName, nil
 }
 
-func (v *Lines) potentialCreditOutbound(i *BookedInvoice) float64 {
+func (v *Lines) perCreditPrice(i *BookedInvoice) float64 {
 	return i.NetAmount / v.CreditQuantity
 }
 
-func (v *Lines) byrdIncome(i *BookedInvoice) float64 {
-	return i.NetAmount - v.potentialEuroAmountOutbound(i)
+func (v *Lines) minByrdInc(i *BookedInvoice) float64 {
+	return i.NetAmount - v.maxSellerCut(i)
 }
 
-func (v *Lines) potentialEuroAmountOutbound(i *BookedInvoice) float64 {
-	return photographerCut * v.CreditQuantity
+func (v *Lines) maxSellerCut(i *BookedInvoice) float64 {
+	return photographerCut * v.perCreditPrice(i)
 }
 
 func (v *Lines) applyTax(i *BookedInvoice) float64 {
