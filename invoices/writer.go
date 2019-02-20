@@ -27,7 +27,7 @@ type PDFLines struct {
 }
 
 // WriteInvoicesPDF (abstraction) creates PDF from data
-func WriteInvoicesPDF(invoices []*BookedInvoice, dateStamp string) ([]byte, error) {
+func WriteInvoicesPDF(invoices []*BookedInvoice) ([]byte, error) {
 	pdfLines := destructValues(invoices)
 	pdf := newPDF()
 	pdf = writeHeader(pdf, []string{"Invoice#", "Date", "Customer", "Country", "Max seller cut", "Min. Byrd cut", "VAT", "Total price"})
@@ -127,14 +127,6 @@ func createPDF(pdf *gofpdf.Fpdf) ([]byte, error) {
 	return b, nil
 
 }
-
-// func createPDF(pdf *gofpdf.Fpdf, dateStamp string) (string, error) {
-// 	fileName := dateStamp[:7] + ".pdf"
-// 	if err := pdf.OutputFileAndClose(fileName); err != nil {
-// 		return "", err
-// 	}
-// 	return fileName, nil
-// }
 
 func (v *Lines) perCreditPrice(i *BookedInvoice) float64 {
 	return i.NetAmount / v.CreditQuantity

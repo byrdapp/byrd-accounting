@@ -98,7 +98,7 @@ func InitInvoiceOutput() error {
 		log.Fatalf("Couldnt create PDF with http: %s", err)
 		return err
 	}
-	if err := server.NewUpload(file, "2012123112"); err != nil {
+	if err := server.NewUpload(file, getMonthAgo()); err != nil {
 		log.Fatalf("couldt upload to server: %s", err)
 		return err
 	}
@@ -136,7 +136,7 @@ func getSpecificEcoBookedInvoices(invoiceNums []*BookedInvoiceNumber) ([]*Booked
 }
 
 func createPDFFromInvoice(invoices []*BookedInvoice) ([]byte, error) {
-	read, err := WriteInvoicesPDF(invoices, getMonthAgo())
+	read, err := WriteInvoicesPDF(invoices)
 	if err != nil {
 		return nil, err
 	}
