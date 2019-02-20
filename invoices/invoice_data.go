@@ -79,7 +79,7 @@ const (
 
 // InitInvoiceOutput starts the whole thing :-)
 func InitInvoiceOutput() error {
-	// testinterval := "date$gte:2019-02-13$and:date$lte:2019-02-28"
+	// testinterval := "date$gte:2019-02-01$and:date$lte:2019-03-01"
 	d := &DateRange{}
 	interval := d.setDateRange()
 	invoices, err := getEconomicsBookedInvoices(interval)
@@ -168,10 +168,11 @@ func createReq(url string, params string) *http.Response {
 	return res
 }
 
-func getDayAgo() string {
+func getCurDate() string {
+	// Should proc at 00:00
 	t := time.Now().UTC()
-	hour := time.Hour
-	t.Add(-hour)
+	// hour := time.Hour
+	// t.Add(-hour)
 	t.Format("20060102")
 	return t.String()[:10]
 }
@@ -186,9 +187,9 @@ func getMonthAgo() string {
 func (d *DateRange) setDateRange() string {
 	dates := DateRange{
 		From: getMonthAgo(),
-		To:   getDayAgo(),
+		To:   getCurDate(),
 	}
-	dates.Query = "date$gte:" + dates.From + "$and:date$lte:" + dates.To
+	dates.Query = "date$gte:" + dates.From + "$and:date$lt:" + dates.To
 	fmt.Printf("Interval from: %s\n to: %s\n", dates.From, dates.To)
 	return dates.Query
 }

@@ -1,6 +1,8 @@
 package server
 
 import (
+	"context"
+
 	"github.com/aws/aws-lambda-go/lambda"
 )
 
@@ -24,23 +26,17 @@ type Response struct {
 
 // Start the handler for storing invoice data
 func Start() {
-	lambda.Start(Handler)
+	lambda.Start(HandleRequest)
 }
-
-// Handler -
-func Handler() (*Response, error) {
-	res := &Response{
-		Message: "Created pdf #",
-		Ok:      true,
-	}
-
-	/**
-	 * 1. Get all invoices from for the previous month
-	 * 2. Convert to PDF
-	 * 3. Upload to S3
-	 * 4. Log("Success") or error
-	 */
-
+// HandleRequest -
+func HandleRequest(ctx context.Context) (*Response, error) {
+	DoEveryThing()
 	return res, nil
-
 }
+
+/**
+ * 1. Get all invoices from for the previous month
+ * 2. Convert to PDF
+ * 3. Upload to S3
+ * 4. Log("Success") or error
+ */
