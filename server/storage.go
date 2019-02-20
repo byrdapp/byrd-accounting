@@ -20,7 +20,7 @@ const (
 func NewUpload(file []byte, dateStamp string) error {
 	s, err := session.NewSession(&aws.Config{
 		Region:      aws.String(s3Region),
-		Credentials: credentials.NewStaticCredentials(os.Getenv("AWS_ACCESS_KEY_ID"), os.Getenv("AWS_SECRET_ACCESS_KEY"), ""),
+		Credentials: credentials.NewStaticCredentials(os.Getenv("AWS_ACCESS"), os.Getenv("AWS_SECRET"), ""),
 	})
 	if err != nil {
 		return err
