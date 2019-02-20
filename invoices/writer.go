@@ -2,6 +2,8 @@ package invoices
 
 import (
 	"fmt"
+	"io"
+	"io/ioutil"
 	"strconv"
 	"time"
 
@@ -25,16 +27,16 @@ type PDFLines struct {
 }
 
 // WriteInvoicesPDF (abstraction) creates PDF from data
-func WriteInvoicesPDF(invoices []*BookedInvoice, dateStamp string) (string, error) {
+func WriteInvoicesPDF(invoices []*BookedInvoice, dateStamp string) ([]byte, error) {
 	pdfLines := destructValues(invoices)
 	pdf := newPDF()
 	pdf = writeHeader(pdf, []string{"Invoice#", "Date", "Customer", "Country", "Max seller cut", "Min. Byrd cut", "VAT", "Total price"})
 	pdf = writeBody(pdf, pdfLines)
 	pdf = writeFooter(pdf)
 	// Write footer with page #
-	fileName, err := createPDF(pdf, dateStamp)
+	fileName, err := createPDF(pdf)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	fmt.Println("Created PDF")
 	return fileName, nil
@@ -48,7 +50,7 @@ func newPDF() *gofpdf.Fpdf {
 	pdf.Ln(10)
 	pdf.SetFont("Times", "", 10)
 	pdf.Cell(30, 10, "Generated: "+time.Now().Format("Mon Jan 2, 2006"))
-	pdf.ImageOptions("byrd.png", 225, 5, 25, 25, false, gofpdf.ImageOptions{ImageType: "PNG", ReadDpi: true}, 0, "")
+	// pdf.ImageOptions("byrd.png", 225, 5, 25, 25, false, gofpdf.ImageOptions{ImageType: "PNG", ReadDpi: true}, 0, "")
 	pdf.Ln(14)
 	return pdf
 }
@@ -106,13 +108,33 @@ func writeFooter(pdf *gofpdf.Fpdf) *gofpdf.Fpdf {
 	return pdf
 }
 
-func createPDF(pdf *gofpdf.Fpdf, dateStamp string) (string, error) {
-	fileName := dateStamp[:7] + ".pdf"
-	if err := pdf.OutputFileAndClose(fileName); err != nil {
-		return "", err
+func createPDF(pdf *gofpdf.Fpdf) ([]byte, error) {
+	fmt.Println("Creating mem pdf")
+
+	pr, pw := io.Pipe()
+
+	go func() {
+		defer pw.Close()
+		if err := pdf.OutputAndClose(pw); err != nil {
+			panic(err)
+		}
+	}()
+
+	b, err := ioutil.ReadAll(pr)
+	if err != nil {
+		panic(err)
 	}
-	return fileName, nil
+	return b, nil
+
 }
+
+// func createPDF(pdf *gofpdf.Fpdf, dateStamp string) (string, error) {
+// 	fileName := dateStamp[:7] + ".pdf"
+// 	if err := pdf.OutputFileAndClose(fileName); err != nil {
+// 		return "", err
+// 	}
+// 	return fileName, nil
+// }
 
 func (v *Lines) perCreditPrice(i *BookedInvoice) float64 {
 	return i.NetAmount / v.CreditQuantity

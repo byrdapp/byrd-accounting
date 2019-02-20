@@ -93,12 +93,12 @@ func InitInvoiceOutput() error {
 		log.Fatalf("Error with getting specific invoice: %s", err)
 	}
 	// For each invoices (BookedINvoices), fetch the corresponding specific invoice line /invoices/booked/{number}
-	fileName, err := createPDFFromInvoice(specificInvoices)
+	file, err := createPDFFromInvoice(specificInvoices)
 	if err != nil {
 		log.Fatalf("Couldnt create PDF with http: %s", err)
 		return err
 	}
-	if err := server.NewUpload(fileName); err != nil {
+	if err := server.NewUpload(file, "2012123112"); err != nil {
 		log.Fatalf("couldt upload to server: %s", err)
 		return err
 	}
@@ -135,12 +135,12 @@ func getSpecificEcoBookedInvoices(invoiceNums []*BookedInvoiceNumber) ([]*Booked
 	return specificInvoices, nil
 }
 
-func createPDFFromInvoice(invoices []*BookedInvoice) (string, error) {
-	fileName, err := WriteInvoicesPDF(invoices, getMonthAgo())
+func createPDFFromInvoice(invoices []*BookedInvoice) ([]byte, error) {
+	read, err := WriteInvoicesPDF(invoices, getMonthAgo())
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	return fileName, nil
+	return read, nil
 }
 
 func createReq(url string, params string) *http.Response {
