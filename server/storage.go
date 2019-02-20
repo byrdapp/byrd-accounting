@@ -36,19 +36,6 @@ func NewUpload(file []byte, dateStamp string) error {
 func uploader(s *session.Session, file []byte, dateStamp string) error {
 	uploader := s3manager.NewUploader(s)
 	fileName := dateStamp[:7] + ".pdf"
-	// file, err := os.Open(fileDir)
-	// if err != nil {
-	// 	return fmt.Errorf("Failed to open file: %q, %v", fileDir, err)
-	// }
-	// defer file.Close()
-
-	// if err != nil {
-	// 	return fmt.Errorf("Failed to open file: %q, %v", fileDir, err)
-	// }
-	// stats, _ := file.Stat()
-	// size := stats.Size()
-	// buffer := make([]byte, size)
-
 	result, err := uploader.Upload(&s3manager.UploadInput{
 		Body:   bytes.NewBuffer(file),
 		Bucket: aws.String(s3Bucket),
