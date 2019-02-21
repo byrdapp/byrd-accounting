@@ -1,4 +1,4 @@
-package server
+package storage
 
 import (
 	"bytes"
@@ -13,7 +13,7 @@ import (
 
 const (
 	s3Region = "eu-north-1"
-	s3Bucket = "byrd-accounting-bucket"
+	s3Bucket = "byrd-accounting"
 )
 
 // NewUpload -
