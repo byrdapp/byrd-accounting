@@ -48,14 +48,14 @@ func initFirebaseDB() (*DBInstance, error) {
 
 // GetSubscriptionProducts - this guy
 func GetSubscriptionProducts(productNumber string) (*SubscriptionProduct, error) {
-	path := os.Getenv("ENV") + "/subscriptionProduct"
+	path := os.Getenv("ENV") + "/subscriptionProduct" + productNumber
 	product := &SubscriptionProduct{}
 	db, err := initFirebaseDB()
 	if err != nil {
 		return nil, err
 	}
 
-	err = db.Client.NewRef(path).OrderByKey().Get(db.Context, product)
+	err = db.Client.NewRef(path).Get(db.Context, product)
 	if err != nil {
 		return nil, err
 	}
@@ -74,4 +74,3 @@ func (sp *SubscriptionProduct) GetPeriod() string {
 
 // 1. Month/year
 // 2. Unlimited
-// 3. Clean DB each month

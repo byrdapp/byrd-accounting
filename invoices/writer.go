@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/byblix/byrd-accounting/storage"
 	"github.com/jung-kurt/gofpdf"
 )
 
@@ -19,13 +20,10 @@ const (
 
 // PDFLines -
 type PDFLines struct {
-	InvoiceNum     int
-	Recipient      *Recipient
-	Date           string
-	MaxSellerCut   float64
-	MinByrdInc     float64
-	TotalNetAmount float64
-	VAT            float64
+	InvoiceNum                                    int
+	Recipient                                     *Recipient
+	Date                                          string
+	MaxSellerCut, MinByrdInc, TotalNetAmount, VAT float64
 }
 
 // WriteInvoicesPDF (abstraction) creates PDF from data
@@ -72,13 +70,17 @@ func destructValues(invoices []*BookedInvoice) []*PDFLines {
 	for _, invoice := range invoices {
 		for _, line := range invoice.Lines {
 			if line.LineNumber == productLineNumber {
+				data, err := storage.GetSubscriptionProducts(line.getProductNum())
+				if err != nil {
+					panic(err)
+				}
 				pdfLine := &PDFLines{
 					InvoiceNum:     invoice.BookedInvoiceNumber,
 					Recipient:      invoice.Recipient,
 					Date:           invoice.Date,
-					MaxSellerCut:   line.maxSellerCut(invoice),
-					MinByrdInc:     line.minByrdInc(invoice),
-					VAT:            line.applyTax(invoice),
+					MaxSellerCut:   invoice.maxSellerCut(data.GetCredits()),
+					MinByrdInc:     line.minByrdInc(invoice, data.GetCredits()),
+					VAT:            applyTax(invoice),
 					TotalNetAmount: invoice.NetAmount,
 				}
 				pdfLines = append(pdfLines, pdfLine)
@@ -130,19 +132,23 @@ func createPDF(pdf *gofpdf.Fpdf) ([]byte, error) {
 
 }
 
-func (v *Lines) perCreditPrice(i *BookedInvoice) float64 {
-	return i.NetAmount / v.CreditQuantity
+func (v *Lines) getProductNum() string {
+	return v.Product.ProductNumber
 }
 
-func (v *Lines) minByrdInc(i *BookedInvoice) float64 {
-	return i.NetAmount - v.maxSellerCut(i)
+func (i *BookedInvoice) perCreditPrice(creditAmount int) float64 {
+	return i.NetAmount / parseFloat(creditAmount)
 }
 
-func (v *Lines) maxSellerCut(i *BookedInvoice) float64 {
-	return photographerCut * v.perCreditPrice(i)
+func (v *Lines) minByrdInc(i *BookedInvoice, n int) float64 {
+	return i.NetAmount - i.maxSellerCut(n)
 }
 
-func (v *Lines) applyTax(i *BookedInvoice) float64 {
+func (i *BookedInvoice) maxSellerCut(n int) float64 {
+	return photographerCut * i.perCreditPrice(n)
+}
+
+func applyTax(i *BookedInvoice) float64 {
 	if i.Recipient.Country == denmark {
 		return i.VatAmount
 	}
@@ -151,4 +157,8 @@ func (v *Lines) applyTax(i *BookedInvoice) float64 {
 
 func formatFloat(n float64) string {
 	return strconv.FormatFloat(n, 'f', 2, 64)
+}
+
+func parseFloat(n int) float64 {
+	return float64(n)
 }

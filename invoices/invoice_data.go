@@ -55,15 +55,13 @@ type Recipient struct {
 
 // Lines -
 type Lines struct {
-	LineNumber     byte     `json:"lineNumber,omitempty"`  /*MUST be #2 on voice*/
-	Description    string   `json:"description,omitempty"` /*If this == dragonplan*/
-	CreditQuantity float64  `json:"quantity,omitempty"`    /*Number of credits*/
-	Product        *Product `json:"product,omitempty"`
+	LineNumber byte     `json:"lineNumber,omitempty"` /*MUST be #2 on voice*/
+	Product    *Product `json:"product,omitempty"`
 }
 
 // Product -
 type Product struct {
-	ProductNumber string `json:"productNumber,omitempty"` /*Needed for firebase*/
+	ProductNumber string `json:"productNumber,omitempty"` /*Needed for firebase*/ /*If this == dragonplan*/
 }
 
 // DateRange -
@@ -142,22 +140,6 @@ func getSpecificEcoBookedInvoices(invoiceNums []*BookedInvoiceNumber) ([]*Booked
 
 	}
 	return specificInvoices, nil
-}
-
-func applyProducData(invoices []*BookedInvoice) {
-
-	for _, val := range invoices {
-		product := &Lines{}
-		data, err := storage.GetSubscriptionProducts(product.getProduct().ProductNumber)
-
-	}
-	// TODO: get FB data
-	// TODO: create logic to handle yearly invoice
-
-}
-
-func (line *Lines) getProduct() *Product {
-	return line.Product
 }
 
 func createEcoReq(url string, params string) *http.Response {
