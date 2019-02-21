@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/byblix/byrd-accounting/server"
+	"github.com/byblix/byrd-accounting/storage"
 )
 
 // BookedInvoices - endpoint https://restapi.e-conomic.com/invoices/booked
@@ -98,7 +98,7 @@ func InitInvoiceOutput() error {
 		log.Fatalf("Couldnt create PDF with http: %s", err)
 		return err
 	}
-	if err := server.NewUpload(file, getMonthAgo()); err != nil {
+	if err := storage.NewUpload(file, getMonthAgo()); err != nil {
 		log.Fatalf("couldt upload to server: %s", err)
 		return err
 	}
@@ -123,6 +123,8 @@ func getSpecificEcoBookedInvoices(invoiceNums []*BookedInvoiceNumber) ([]*Booked
 	for _, num := range invoiceNums {
 		invoice := &BookedInvoice{}
 		url := ecoURL + "/invoices/booked/" + strconv.Itoa(num.BookedInvoiceNumber)
+		// TODO: get FB data
+		// TODO: create logic to handle yearly invoice
 		res := createReq(url, "")
 		err := json.NewDecoder(res.Body).Decode(&invoice)
 		if err != nil {
