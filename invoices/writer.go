@@ -11,8 +11,10 @@ import (
 )
 
 const (
-	denmark = "Denmark"
-	other   = "Other"
+	denmark           = "Denmark"
+	other             = "Other"
+	productLineNumber = 2
+	photographerCut   = 15
 )
 
 // PDFLines -
@@ -69,7 +71,7 @@ func destructValues(invoices []*BookedInvoice) []*PDFLines {
 	pdfLines := []*PDFLines{}
 	for _, invoice := range invoices {
 		for _, line := range invoice.Lines {
-			if line.LineNumber == creditLineNumber {
+			if line.LineNumber == productLineNumber {
 				pdfLine := &PDFLines{
 					InvoiceNum:     invoice.BookedInvoiceNumber,
 					Recipient:      invoice.Recipient,

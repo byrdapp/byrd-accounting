@@ -55,9 +55,15 @@ type Recipient struct {
 
 // Lines -
 type Lines struct {
-	LineNumber     byte    `json:"lineNumber,omitempty"`  /*MUST be #2 on voice*/
-	Description    string  `json:"description,omitempty"` /*If this == dragonplan*/
-	CreditQuantity float64 `json:"quantity,omitempty"`    /*Number of credits*/
+	LineNumber     byte     `json:"lineNumber,omitempty"`  /*MUST be #2 on voice*/
+	Description    string   `json:"description,omitempty"` /*If this == dragonplan*/
+	CreditQuantity float64  `json:"quantity,omitempty"`    /*Number of credits*/
+	Product        *Product `json:"product,omitempty"`
+}
+
+// Product -
+type Product struct {
+	ProductNumber string `json:"productNumber,omitempty"` /*Needed for firebase*/
 }
 
 // DateRange -
@@ -72,32 +78,35 @@ var (
 	ecoURL = "https://restapi.e-conomic.com"
 )
 
-const (
-	creditLineNumber = 2
-	photographerCut  = 15
-)
-
 // InitInvoiceOutput starts the whole thing :-)
 func InitInvoiceOutput() error {
 	// testinterval := "date$gte:2019-02-01$and:date$lte:2019-03-01"
 	d := &DateRange{}
 	interval := d.setDateRange()
+
+	// Get the booked Eco invoices
 	invoices, err := getEconomicsBookedInvoices(interval)
 	if err != nil {
 		log.Fatalf("Couldnt get the booked invoices: %s", err)
 		return err
 	}
 
+	// For each invoices (*Collection), fetch the corresponding specific invoice line /invoices/booked/{number}
 	specificInvoices, err := getSpecificEcoBookedInvoices(invoices.Collection)
 	if err != nil {
 		log.Fatalf("Error with getting specific invoice: %s", err)
 	}
-	// For each invoices (BookedINvoices), fetch the corresponding specific invoice line /invoices/booked/{number}
-	file, err := createPDFFromInvoice(specificInvoices)
+
+	// Apply and generate values
+
+	// Write the invoice
+	file, err := WriteInvoicesPDF(specificInvoices)
 	if err != nil {
-		log.Fatalf("Couldnt create PDF with http: %s", err)
+		log.Fatalf("Couldnt create PDF: %s", err)
 		return err
 	}
+
+	// Upload Mem PDF to S3
 	if err := storage.NewUpload(file, getMonthAgo()); err != nil {
 		log.Fatalf("couldt upload to server: %s", err)
 		return err
@@ -110,7 +119,7 @@ func getEconomicsBookedInvoices(query string) (*BookedInvoices, error) {
 	// combined mongo query excc.: date$gte:2018-01-01$and:date$lte:2018-01-09
 	invoices := BookedInvoices{}
 	url := ecoURL + "/invoices/booked"
-	res := createReq(url, query)
+	res := createEcoReq(url, query)
 	err := json.NewDecoder(res.Body).Decode(&invoices)
 	if err != nil {
 		return nil, err
@@ -123,29 +132,35 @@ func getSpecificEcoBookedInvoices(invoiceNums []*BookedInvoiceNumber) ([]*Booked
 	for _, num := range invoiceNums {
 		invoice := &BookedInvoice{}
 		url := ecoURL + "/invoices/booked/" + strconv.Itoa(num.BookedInvoiceNumber)
-		// TODO: get FB data
-		// TODO: create logic to handle yearly invoice
-		res := createReq(url, "")
+		res := createEcoReq(url, "")
 		err := json.NewDecoder(res.Body).Decode(&invoice)
 		if err != nil {
 			return nil, err
 		}
-		fmt.Println(invoice.BookedInvoiceNumber)
-		// Set PDFData values based on invoice values
+
 		specificInvoices = append(specificInvoices, invoice)
+
 	}
 	return specificInvoices, nil
 }
 
-func createPDFFromInvoice(invoices []*BookedInvoice) ([]byte, error) {
-	read, err := WriteInvoicesPDF(invoices)
-	if err != nil {
-		return nil, err
+func applyProducData(invoices []*BookedInvoice) {
+
+	for _, val := range invoices {
+		product := &Lines{}
+		data, err := storage.GetSubscriptionProducts(product.getProduct().ProductNumber)
+
 	}
-	return read, nil
+	// TODO: get FB data
+	// TODO: create logic to handle yearly invoice
+
 }
 
-func createReq(url string, params string) *http.Response {
+func (line *Lines) getProduct() *Product {
+	return line.Product
+}
+
+func createEcoReq(url string, params string) *http.Response {
 	client := &http.Client{}
 	req, err := http.NewRequest("GET", url, nil)
 	header := &req.Header
