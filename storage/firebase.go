@@ -25,13 +25,14 @@ type DBInstance struct {
 	Context context.Context
 }
 
-// InitFirebase SE
-func initFirebaseDB() (*DBInstance, error) {
+// InitFirebaseDB SE
+func InitFirebaseDB() (*DBInstance, error) {
 	ctx := context.Background()
 	config := &firebase.Config{
 		DatabaseURL: os.Getenv("FB_DATABASE_URL"),
 	}
-	opt := option.WithCredentialsJSON(GetSecrets())
+	jsonPath := "fb-" + os.Getenv("ENV") + ".json"
+	opt := option.WithCredentialsJSON(GetAWSSecrets(jsonPath))
 	app, err := firebase.NewApp(ctx, config, opt)
 	if err != nil {
 		panic(err)
@@ -48,31 +49,26 @@ func initFirebaseDB() (*DBInstance, error) {
 }
 
 // GetSubscriptionProducts - this guy
-func GetSubscriptionProducts(productNumber string) (*SubscriptionProduct, error) {
-	path := os.Getenv("ENV") + "/subscriptionProduct/" + productNumber
-	product := &SubscriptionProduct{}
-	db, err := initFirebaseDB()
-	if err != nil {
+func GetSubscriptionProducts(db *DBInstance, productNumber string) (*SubscriptionProduct, error) {
+	path := os.Getenv("ENV") + "/subscriptionProducts/" + productNumber
+	product := SubscriptionProduct{}
+	fmt.Printf("Path: %s\n", path)
+	ref := db.Client.NewRef(path)
+	if err := ref.Get(db.Context, &product); err != nil {
 		return nil, err
 	}
-	fmt.Printf("Got the path: %s and db\n", path)
-
-	err = db.Client.NewRef(path).Get(db.Context, product)
-	if err != nil {
-		return nil, err
-	}
-	return product, nil
+	return &product, nil
 }
 
 // GetCredits specific credit amount pr. product
-func (sp *SubscriptionProduct) GetCredits() int {
-	return sp.Credits
-}
+// func (sp *SubscriptionProduct) GetCredits() int {
+// 	return sp.Credits
+// }
 
 // GetPeriod period ("month"/"year")
-func (sp *SubscriptionProduct) GetPeriod() string {
-	return sp.Period
-}
+// func (sp *SubscriptionProduct) GetPeriod() string {
+// 	return sp.Period
+// }
 
 // 1. Month/year
 // 2. Unlimited

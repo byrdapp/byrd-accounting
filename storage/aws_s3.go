@@ -16,8 +16,8 @@ import (
 
 const (
 	s3Region       = "eu-north-1"
-	s3Bucket       = "byrd-accounting"
 	s3SecretBucket = "byrd-secrets"
+	s3Bucket       = "byrd-accounting"
 )
 
 // NewUpload -
@@ -54,22 +54,20 @@ func uploader(s *session.Session, file []byte, dateStamp string) error {
 	return nil
 }
 
-// GetSecrets -
-func GetSecrets() []byte {
-	fileName := "fb-" + os.Getenv("ENV") + ".json"
+// GetAWSSecrets -
+func GetAWSSecrets(fileName string) []byte {
 	buf := &aws.WriteAtBuffer{}
 	sess, _ := session.NewSession(&aws.Config{
 		Region:      aws.String(s3Region),
 		Credentials: credentials.NewStaticCredentials(os.Getenv("AWS_ACCESS"), os.Getenv("AWS_SECRET"), ""),
 	})
 	dl := s3manager.NewDownloader(sess)
-	nBytes, err := dl.Download(buf, &s3.GetObjectInput{
+	_, err := dl.Download(buf, &s3.GetObjectInput{
 		Bucket: aws.String(s3SecretBucket),
 		Key:    aws.String(fileName),
 	})
 	if err != nil {
 		log.Fatal(err)
 	}
-	fmt.Println("Bytes:", nBytes)
 	return buf.Bytes()
 }

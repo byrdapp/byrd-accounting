@@ -78,12 +78,17 @@ var (
 
 // InitInvoiceOutput starts the whole thing :-)
 func InitInvoiceOutput() error {
-	// testinterval := "date$gte:2019-02-01$and:date$lte:2019-03-01"
-	d := &DateRange{}
-	interval := d.setDateRange()
+	/*test*/
+	// d := &DateRange{
+	// 	From: "2018-12-01",
+	// 	To:   "2019-01-1",
+	// }
+	// d.Query = "date$gte:" + d.From + "$and:date$lte:" + d.To
+	/*test*/
 
-	// Get the booked Eco invoices
-	invoices, err := getEconomicsBookedInvoices(interval)
+	// Set current dates and GET the booked Eco invoices
+	dates := setDateRange()
+	invoices, err := getEconomicsBookedInvoices(dates.Query)
 	if err != nil {
 		log.Fatalf("Couldnt get the booked invoices: %s", err)
 		return err
@@ -105,7 +110,7 @@ func InitInvoiceOutput() error {
 	}
 
 	// Upload Mem PDF to S3
-	if err := storage.NewUpload(file, getMonthAgo()); err != nil {
+	if err := storage.NewUpload(file, dates.To); err != nil {
 		log.Fatalf("couldt upload to server: %s", err)
 		return err
 	}
@@ -183,14 +188,14 @@ func getMonthAgo() string {
 	return month.String()[:10]
 }
 
-func (d *DateRange) setDateRange() string {
+func setDateRange() *DateRange {
 	dates := DateRange{
 		From: getMonthAgo(),
 		To:   getCurDate(),
 	}
 	dates.Query = "date$gte:" + dates.From + "$and:date$lt:" + dates.To
 	fmt.Printf("Interval from: %s\n to: %s\n", dates.From, dates.To)
-	return dates.Query
+	return &dates
 }
 
 func printStructAsJSONText(i interface{}) {
