@@ -18,6 +18,8 @@ const (
 	other                  = "Other"
 	dkk                    = "DKK"
 	eur                    = "EUR"
+	month                  = "month"
+	year                   = "year"
 	productLineNumber      = 2
 	photographerCut        = 15
 	unlimitedAmountCredits = 0

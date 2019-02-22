@@ -59,16 +59,3 @@ func GetSubscriptionProducts(db *DBInstance, productNumber string) (*Subscriptio
 	}
 	return &product, nil
 }
-
-// GetCredits specific credit amount pr. product
-// func (sp *SubscriptionProduct) GetCredits() int {
-// 	return sp.Credits
-// }
-
-// GetPeriod period ("month"/"year")
-// func (sp *SubscriptionProduct) GetPeriod() string {
-// 	return sp.Period
-// }
-
-// 1. Month/year
-// 2. Unlimited

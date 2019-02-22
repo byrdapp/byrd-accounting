@@ -103,7 +103,7 @@ func InitInvoiceOutput() error {
 	// Apply and generate values
 
 	// Write the invoice
-	file, err := WriteInvoicesPDF(specificInvoices)
+	files, err := WriteInvoicesPDF(specificInvoices)
 	if err != nil {
 		log.Fatalf("Couldnt create PDF: %s", err)
 		return err
