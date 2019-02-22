@@ -2,7 +2,10 @@ package storage
 
 import (
 	"context"
+	"fmt"
 	"os"
+
+	"google.golang.org/api/option"
 
 	"firebase.google.com/go/db"
 
@@ -26,12 +29,10 @@ type DBInstance struct {
 func initFirebaseDB() (*DBInstance, error) {
 	ctx := context.Background()
 	config := &firebase.Config{
-		DatabaseURL:      os.Getenv("FB_DATABASE_URL"),
-		ProjectID:        os.Getenv("FB_PROJECT_ID"),
-		ServiceAccountID: os.Getenv("FB_SERVICE_ACC"),
-		StorageBucket:    os.Getenv("FB_BUCKET"),
+		DatabaseURL: os.Getenv("FB_DATABASE_URL"),
 	}
-	app, err := firebase.NewApp(ctx, config)
+	opt := option.WithCredentialsJSON(GetSecrets())
+	app, err := firebase.NewApp(ctx, config, opt)
 	if err != nil {
 		panic(err)
 	}
@@ -48,12 +49,13 @@ func initFirebaseDB() (*DBInstance, error) {
 
 // GetSubscriptionProducts - this guy
 func GetSubscriptionProducts(productNumber string) (*SubscriptionProduct, error) {
-	path := os.Getenv("ENV") + "/subscriptionProduct" + productNumber
+	path := os.Getenv("ENV") + "/subscriptionProduct/" + productNumber
 	product := &SubscriptionProduct{}
 	db, err := initFirebaseDB()
 	if err != nil {
 		return nil, err
 	}
+	fmt.Printf("Got the path: %s and db\n", path)
 
 	err = db.Client.NewRef(path).Get(db.Context, product)
 	if err != nil {

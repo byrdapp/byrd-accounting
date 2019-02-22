@@ -3,7 +3,10 @@ package storage
 import (
 	"bytes"
 	"fmt"
+	"log"
 	"os"
+
+	"github.com/aws/aws-sdk-go/service/s3"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
@@ -12,8 +15,9 @@ import (
 )
 
 const (
-	s3Region = "eu-north-1"
-	s3Bucket = "byrd-accounting"
+	s3Region       = "eu-north-1"
+	s3Bucket       = "byrd-accounting"
+	s3SecretBucket = "byrd-secrets"
 )
 
 // NewUpload -
@@ -48,4 +52,24 @@ func uploader(s *session.Session, file []byte, dateStamp string) error {
 	}
 	fmt.Printf("Successfully uploaded file to: %s\n", aws.StringValue(&result.Location))
 	return nil
+}
+
+// GetSecrets -
+func GetSecrets() []byte {
+	fileName := "fb-" + os.Getenv("ENV") + ".json"
+	buf := &aws.WriteAtBuffer{}
+	sess, _ := session.NewSession(&aws.Config{
+		Region:      aws.String(s3Region),
+		Credentials: credentials.NewStaticCredentials(os.Getenv("AWS_ACCESS"), os.Getenv("AWS_SECRET"), ""),
+	})
+	dl := s3manager.NewDownloader(sess)
+	nBytes, err := dl.Download(buf, &s3.GetObjectInput{
+		Bucket: aws.String(s3SecretBucket),
+		Key:    aws.String(fileName),
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println("Bytes:", nBytes)
+	return buf.Bytes()
 }

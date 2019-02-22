@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"log"
 	"strconv"
 	"time"
 
@@ -70,16 +71,16 @@ func destructValues(invoices []*BookedInvoice) []*PDFLines {
 	for _, invoice := range invoices {
 		for _, line := range invoice.Lines {
 			if line.LineNumber == productLineNumber {
-				data, err := storage.GetSubscriptionProducts(line.getProductNum())
+				product, err := storage.GetSubscriptionProducts(line.getProductNum())
 				if err != nil {
-					panic(err)
+					log.Panicf("Didnt get products from FB: %s", err)
 				}
 				pdfLine := &PDFLines{
 					InvoiceNum:     invoice.BookedInvoiceNumber,
 					Recipient:      invoice.Recipient,
 					Date:           invoice.Date,
-					MaxSellerCut:   invoice.maxSellerCut(data.GetCredits()),
-					MinByrdInc:     line.minByrdInc(invoice, data.GetCredits()),
+					MaxSellerCut:   invoice.maxSellerCut(product.GetCredits()),
+					MinByrdInc:     line.minByrdInc(invoice, product.GetCredits()),
 					VAT:            applyTax(invoice),
 					TotalNetAmount: invoice.NetAmount,
 				}
