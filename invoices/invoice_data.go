@@ -119,7 +119,7 @@ func InitInvoiceOutput() error {
 
 func getEconomicsBookedInvoices(query string) (*BookedInvoices, error) {
 	//syntax: https://restdocs.e-conomic.com/#filter-operators
-	// combined mongo query excc.: date$gte:2018-01-01$and:date$lte:2018-01-09
+	// combined mongo query excc.: date$gte:2018-01-01$and:date$lt:2018-01-09
 	invoices := BookedInvoices{}
 	url := ecoURL + "/invoices/booked"
 	res := createEcoReq(url, query)
