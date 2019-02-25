@@ -37,9 +37,8 @@ type BookedInvoice struct {
 	BookedInvoiceNumber int        `json:"bookedInvoiceNumber,omitempty"`
 	Date                string     `json:"date,omitempty"`
 	Currency            string     `json:"currency,omitempty"`
-	NetAmount           float64    `json:"netAmount,omitempty"`
 	GrossAmount         float64    `json:"grossAmount,omitempty"`
-	VatAmount           float64    `json:"vatAmount,omitempty"`
+	VatAmount           float64    `json:"vatAmount"`
 	Lines               []*Lines   `json:"lines,omitempty"`
 	Recipient           *Recipient `json:"recipient"`
 }
@@ -55,8 +54,10 @@ type Recipient struct {
 
 // Lines -
 type Lines struct {
-	LineNumber byte     `json:"lineNumber,omitempty"` /*MUST be #2 on voice*/
-	Product    *Product `json:"product,omitempty"`
+	LineNumber     byte     `json:"lineNumber,omitempty"` /*MUST be #1 on invoice*/
+	TotalNetAmount float64  `json:"totalNetAmount"`
+	VatAmount      float64  `json:"vatAmount"`
+	Product        *Product `json:"product,omitempty"`
 }
 
 // Product -
@@ -103,7 +104,7 @@ func InitInvoiceOutput() error {
 	// Apply and generate values
 
 	// Write the invoice
-	files, err := WriteInvoicesPDF(specificInvoices)
+	file, err := WriteInvoicesPDF(specificInvoices)
 	if err != nil {
 		log.Fatalf("Couldnt create PDF: %s", err)
 		return err

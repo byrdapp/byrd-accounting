@@ -14,9 +14,9 @@ import (
 
 // SubscriptionProduct is the economics invoice ID
 type SubscriptionProduct struct {
-	Credits  int    `json:"credits,omitempty"`
-	StripeID string `json:"id,omitempty"`
-	Period   string `json:"period,omitempty"`
+	Credits  int    `json:"credits"`
+	StripeID string `json:"id"`
+	Period   string `json:"period"`
 }
 
 // DBInstance -

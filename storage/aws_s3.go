@@ -39,12 +39,12 @@ func NewUpload(file []byte, dateStamp string) error {
 // Uploader S3 uploader
 func uploader(s *session.Session, file []byte, dateStamp string) error {
 	uploader := s3manager.NewUploader(s)
-	fileName := dateStamp[:7] + ".pdf"
+	dir := "/" + dateStamp[:7] + "/"
+	fileName := "media-subscriptions_" + dateStamp[:7] + ".pdf"
 	result, err := uploader.Upload(&s3manager.UploadInput{
-		Body:   bytes.NewBuffer(file),
-		Bucket: aws.String(s3Bucket),
-		Key:    aws.String(string(fileName)),
-		// ContentType:          aws.String(http.DetectContentType(buffer)),
+		Body:                 bytes.NewBuffer(file),
+		Bucket:               aws.String(s3Bucket),
+		Key:                  aws.String(dir + string(fileName)),
 		ServerSideEncryption: aws.String("AES256"),
 	})
 	if err != nil {
@@ -52,6 +52,9 @@ func uploader(s *session.Session, file []byte, dateStamp string) error {
 	}
 	fmt.Printf("Successfully uploaded file to: %s\n", aws.StringValue(&result.Location))
 	return nil
+}
+
+func creatFolder() {
 }
 
 // GetAWSSecrets -
