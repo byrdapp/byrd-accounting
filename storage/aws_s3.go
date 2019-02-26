@@ -20,24 +20,25 @@ const (
 	s3Bucket       = "byrd-accounting"
 )
 
-// NewUpload -
-func NewUpload(file []byte, dateStamp string) error {
+// NewUpload returns url location for where the file has been placed
+func NewUpload(file []byte, dateStamp string) (string, error) {
 	s, err := session.NewSession(&aws.Config{
 		Region:      aws.String(s3Region),
 		Credentials: credentials.NewStaticCredentials(os.Getenv("AWS_ACCESS"), os.Getenv("AWS_SECRET"), ""),
 	})
 	if err != nil {
-		return err
+		return "", err
 	}
 	sess := session.Must(s, err)
-	if err := uploader(sess, file, dateStamp); err != nil {
-		return err
+	location, err := uploader(sess, file, dateStamp)
+	if err != nil {
+		return "", err
 	}
-	return nil
+	return location, nil
 }
 
 // Uploader S3 uploader
-func uploader(s *session.Session, file []byte, dateStamp string) error {
+func uploader(s *session.Session, file []byte, dateStamp string) (string, error) {
 	uploader := s3manager.NewUploader(s)
 	dir := "/" + dateStamp[:7] + "/"
 	fileName := "media-subscriptions_" + dateStamp[:7] + ".pdf"
@@ -48,13 +49,10 @@ func uploader(s *session.Session, file []byte, dateStamp string) error {
 		ServerSideEncryption: aws.String("AES256"),
 	})
 	if err != nil {
-		return fmt.Errorf("Failed to upload file:  %v", err)
+		return "", fmt.Errorf("Failed to upload file:  %v", err)
 	}
 	fmt.Printf("Successfully uploaded file to: %s\n", aws.StringValue(&result.Location))
-	return nil
-}
-
-func creatFolder() {
+	return dir, nil
 }
 
 // GetAWSSecrets -

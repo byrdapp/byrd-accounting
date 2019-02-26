@@ -8,8 +8,6 @@ import (
 	"os"
 	"strconv"
 	"time"
-
-	"github.com/byblix/byrd-accounting/storage"
 )
 
 // BookedInvoices - endpoint https://restapi.e-conomic.com/invoices/booked
@@ -76,47 +74,6 @@ var (
 	logger *log.Logger
 	ecoURL = "https://restapi.e-conomic.com"
 )
-
-// InitInvoiceOutput starts the whole thing :-)
-func InitInvoiceOutput() error {
-	/*test*/
-	// d := &DateRange{
-	// 	From: "2018-12-01",
-	// 	To:   "2019-01-1",
-	// }
-	// d.Query = "date$gte:" + d.From + "$and:date$lte:" + d.To
-	/*test*/
-
-	// Set current dates and GET the booked Eco invoices
-	dates := setDateRange()
-	invoices, err := getEconomicsBookedInvoices(dates.Query)
-	if err != nil {
-		log.Fatalf("Couldnt get the booked invoices: %s", err)
-		return err
-	}
-
-	// For each invoices (*Collection), fetch the corresponding specific invoice line /invoices/booked/{number}
-	specificInvoices, err := getSpecificEcoBookedInvoices(invoices.Collection)
-	if err != nil {
-		log.Fatalf("Error with getting specific invoice: %s", err)
-	}
-
-	// Apply and generate values
-
-	// Write the invoice
-	file, err := WriteInvoicesPDF(specificInvoices)
-	if err != nil {
-		log.Fatalf("Couldnt create PDF: %s", err)
-		return err
-	}
-
-	// Upload Mem PDF to S3
-	if err := storage.NewUpload(file, dates.To); err != nil {
-		log.Fatalf("couldt upload to server: %s", err)
-		return err
-	}
-	return nil
-}
 
 func getEconomicsBookedInvoices(query string) (*BookedInvoices, error) {
 	//syntax: https://restdocs.e-conomic.com/#filter-operators
@@ -189,7 +146,8 @@ func getMonthAgo() string {
 	return month.String()[:10]
 }
 
-func setDateRange() *DateRange {
+// SetDateRange to get the interval
+func SetDateRange() *DateRange {
 	dates := DateRange{
 		From: getMonthAgo(),
 		To:   getCurDate(),
