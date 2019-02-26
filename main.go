@@ -23,13 +23,10 @@ func init() {
 	}
 }
 
-// func main() {
-// 	HandleRequest()
-// }
-
 func main() {
 	/* Run shellscript: `$ sh create-lambda.sh` for docker deploy */
 	lambda.Start(HandleRequest)
+	// HandleRequest() // 	testing:
 }
 
 // HandleRequest -
