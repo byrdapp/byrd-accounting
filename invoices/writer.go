@@ -1,6 +1,7 @@
 package invoices
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -10,6 +11,7 @@ import (
 
 	"github.com/byblix/byrd-accounting/storage"
 	"github.com/jung-kurt/gofpdf"
+	"github.com/leekchan/accounting"
 )
 
 const (
@@ -43,14 +45,18 @@ var ftrHdrSizes = []float64{20, 20, 50, 20, 20, 30, 30, 30, 30}
 
 // WriteInvoicesPDF (abstraction) creates PDF from data
 func WriteInvoicesPDF(invoices []*BookedInvoice) ([]byte, error) {
+	ac := &accounting.Accounting{Precision: 2, Thousand: ".", Decimal: ","}
+	// Init DB
 	db, err := storage.InitFirebaseDB()
+	// Gather PDF values in struct
 	pdfLines := handleValues(db, invoices)
+	// calculate total values
 	totals := calcTotalVals(pdfLines)
+	// Write new PDF
 	pdf := newPDF()
 	pdf = writeHeader(pdf, []string{"Inv.#", "Date", "Customer", "Country", "Period", "Max seller cut", "Min. Byrd cut", "VAT", "Total price (DKK)"})
-	pdf = writeBody(pdf, pdfLines)
-	pdf = writeFooter(pdf, totals)
-	// Write footer with page #
+	pdf = writeBody(pdf, pdfLines, ac)
+	pdf = writeFooter(pdf, totals, ac)
 	file, err := createPDF(pdf)
 	if err != nil {
 		return nil, err
@@ -67,9 +73,14 @@ func newPDF() *gofpdf.Fpdf {
 	pdf.Ln(10)
 	pdf.SetFont("Times", "", 10)
 	pdf.Cell(40, 10, "Generated: "+time.Now().Format("Mon Jan 2, 2006"))
-	// bImg := storage.GetAWSSecrets("byrd.png")
-	// img := pdf.RegisterImageOptionsReader()
-	pdf.ImageOptions("byrd.png", 225, 5, 25, 25, false, gofpdf.ImageOptions{ImageType: "PNG", ReadDpi: true}, 0, "")
+	bImg := storage.GetAWSSecrets("byrd.png")
+	r := bytes.NewReader(bImg)
+	opts := gofpdf.ImageOptions{
+		ImageType: "PNG",
+		ReadDpi:   true,
+	}
+	pdf.RegisterImageOptionsReader("byrd.png", opts, r)
+	pdf.ImageOptions("byrd.png", 225, 5, 25, 25, false, opts, 0, "")
 	pdf.Ln(14)
 	return pdf
 }
@@ -123,8 +134,9 @@ func calcTotalVals(vals []*PDFLine) *TotalVals {
 	return totalVals
 }
 
-func writeBody(pdf *gofpdf.Fpdf, pdfLines []*PDFLine) *gofpdf.Fpdf {
+func writeBody(pdf *gofpdf.Fpdf, pdfLines []*PDFLine, ac *accounting.Accounting) *gofpdf.Fpdf {
 	pdf.SetFont("Times", "", 10)
+
 	pdf.SetFillColor(240, 240, 240)
 	// {20, 30, 50, 20, 30, 30, 20, 40}
 	for _, line := range pdfLines {
@@ -133,17 +145,17 @@ func writeBody(pdf *gofpdf.Fpdf, pdfLines []*PDFLine) *gofpdf.Fpdf {
 		pdf.CellFormat(50, 8, line.Recipient.Name, "1", 0, "", true, 0, "")
 		pdf.CellFormat(20, 8, line.Recipient.Country, "1", 0, "", true, 0, "")
 		pdf.CellFormat(20, 8, line.Period, "1", 0, "", true, 0, "")
-		pdf.CellFormat(30, 8, formatFloatToStr(line.MaxSellerCut), "1", 0, "", true, 0, "")
-		pdf.CellFormat(30, 8, formatFloatToStr(line.MinByrdInc), "1", 0, "", true, 0, "")
-		pdf.CellFormat(30, 8, formatFloatToStr(line.VAT), "1", 0, "", true, 0, "")
-		pdf.CellFormat(30, 8, formatFloatToStr(line.NetAmount+line.VAT), "1", 0, "", true, 0, "")
+		pdf.CellFormat(30, 8, ac.FormatMoneyFloat64(line.MaxSellerCut), "1", 0, "", true, 0, "")
+		pdf.CellFormat(30, 8, ac.FormatMoneyFloat64(line.MinByrdInc), "1", 0, "", true, 0, "")
+		pdf.CellFormat(30, 8, ac.FormatMoneyFloat64(line.VAT), "1", 0, "", true, 0, "")
+		pdf.CellFormat(30, 8, ac.FormatMoneyFloat64(line.NetAmount+line.VAT), "1", 0, "", true, 0, "")
 		pdf.Ln(6)
 		fmt.Printf("Wrote invoice#: %v to customer: %s with amount: %v\n", line.InvoiceNum, line.Recipient.Name, line.NetAmount)
 	}
 	return pdf
 }
 
-func writeFooter(pdf *gofpdf.Fpdf, ftr *TotalVals) *gofpdf.Fpdf {
+func writeFooter(pdf *gofpdf.Fpdf, ftr *TotalVals, ac *accounting.Accounting) *gofpdf.Fpdf {
 	pdf.SetFont("Times", "B", 10)
 	pdf.SetFillColor(240, 240, 240)
 	pdf.Cell(20, 10, "Total amounts:")
@@ -151,10 +163,10 @@ func writeFooter(pdf *gofpdf.Fpdf, ftr *TotalVals) *gofpdf.Fpdf {
 	pdf.Cell(50, 10, "")
 	pdf.Cell(20, 10, "")
 	pdf.Cell(20, 10, "")
-	pdf.Cell(30, 10, formatFloatToStr(ftr.TotalSellerCut))
-	pdf.Cell(30, 10, formatFloatToStr(ftr.TotalByrdInc))
-	pdf.Cell(30, 10, formatFloatToStr(ftr.TotalVAT))
-	pdf.Cell(30, 10, formatFloatToStr(ftr.TotalNetAmount+ftr.TotalVAT))
+	pdf.Cell(30, 10, ac.FormatMoneyFloat64(ftr.TotalSellerCut))
+	pdf.Cell(30, 10, ac.FormatMoneyFloat64(ftr.TotalByrdInc))
+	pdf.Cell(30, 10, ac.FormatMoneyFloat64(ftr.TotalVAT))
+	pdf.Cell(30, 10, ac.FormatMoneyFloat64(ftr.TotalNetAmount+ftr.TotalVAT))
 	pdf.Ln(-1)
 	return pdf
 }
