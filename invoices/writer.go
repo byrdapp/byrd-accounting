@@ -23,9 +23,11 @@ const (
 	month                  = "month"
 	year                   = "year"
 	productLineNumber      = 1
+	productSortKey         = 1
 	photographerCut        = 15
 	unlimitedAmountCredits = 0
 	euroToDKKPrice         = 7.425
+	productPAYG            = "22"
 )
 
 // PDFLine -
@@ -100,11 +102,16 @@ func handleValues(db *storage.DBInstance, invoices []*BookedInvoice) []*PDFLine 
 	// totalVals := []*TotalVals{}
 	for _, invoice := range invoices {
 		for _, line := range invoice.Lines {
-			if line.LineNumber == productLineNumber {
+			// If the line number is not the sortkey
+			line = line.handleIfWrongLineNumber(invoice)
+			// If line and sortkey checks out
+			if line.LineNumber == line.SortKey && line.LineNumber == productLineNumber {
 				product, err := storage.GetSubscriptionProducts(db, line.Product.ProductNumber)
 				if err != nil {
 					log.Panicf("Didnt get products from FB: %s", err)
 				}
+				product.Credits = line.handleIfPAYGCredits(product)
+
 				pdfLine := &PDFLine{
 					InvoiceNum:   invoice.BookedInvoiceNumber,
 					Recipient:    invoice.Recipient,
@@ -121,6 +128,25 @@ func handleValues(db *storage.DBInstance, invoices []*BookedInvoice) []*PDFLine 
 		}
 	}
 	return pdfLines
+}
+
+func (l *Lines) handleIfWrongLineNumber(i *BookedInvoice) *Lines {
+	if l.SortKey != l.LineNumber {
+		if l.LineNumber != productLineNumber {
+			l.LineNumber = productLineNumber
+		}
+	}
+	fmt.Printf("Fixed line: %v for product %s and invoice#: %v\n", l.LineNumber, l.Product, i.BookedInvoiceNumber)
+	return l
+}
+
+func (l *Lines) handleIfPAYGCredits(p *storage.SubscriptionProduct) int {
+	if l.Product.ProductNumber == productPAYG {
+		credits := int(l.Quantity)
+		fmt.Printf("Credit amount was calculated based on PAYG amount: %v\n", credits)
+		return credits
+	}
+	return p.Credits
 }
 
 func calcTotalVals(vals []*PDFLine) *TotalVals {

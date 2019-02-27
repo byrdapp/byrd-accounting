@@ -52,9 +52,11 @@ type Recipient struct {
 
 // Lines -
 type Lines struct {
-	LineNumber     byte     `json:"lineNumber,omitempty"` /*MUST be #1 on invoice*/
+	LineNumber     int      `json:"lineNumber,omitempty"` /*MUST be #1 on invoice*/
+	SortKey        int      `json:"sortKey"`              /*MUST be #1 on invoice*/
 	TotalNetAmount float64  `json:"totalNetAmount"`
 	VatAmount      float64  `json:"vatAmount"`
+	Quantity       float64  `json:"quantity"`
 	Product        *Product `json:"product,omitempty"`
 }
 
