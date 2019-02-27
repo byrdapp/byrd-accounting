@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/byblix/byrd-accounting/invoices"
 	"github.com/byblix/byrd-accounting/slack"
 	"github.com/byblix/byrd-accounting/storage"
@@ -27,19 +28,20 @@ func init() {
 // 2. Uden om platformen
 func main() {
 	/* Run shellscript: `$ sh create-lambda.sh` for docker deploy */
-	// lambda.Start(HandleRequest)
+	lambda.Start(HandleRequest)
+	// HandleRequest() // 	testing:
 }
 
 // HandleRequest -
 func HandleRequest() {
 	/*CUSTOM DATES*/
-	dates := &invoices.DateRange{
-		From: "2019-02-01",
-		To:   "2019-02-28",
-	}
-	dates.Query = "date$gte:" + dates.From + "$and:date$lte:" + dates.To
+	// dates := &invoices.DateRange{
+	// 	From: "2019-02-01",
+	// 	To:   "2019-02-28",
+	// }
+	// dates.Query = "date$gte:" + dates.From + "$and:date$lte:" + dates.To
 	/*CUSTOM DATES*/
-	// dates := invoices.SetDateRange()
+	dates := invoices.SetDateRange()
 	file := CreateInvoice(dates)
 	_, err := StoreOnAWS(file, dates)
 	if err != nil {
