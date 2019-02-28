@@ -6,6 +6,7 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
+	"math"
 	"strconv"
 	"time"
 
@@ -97,33 +98,41 @@ func writeHeader(pdf *gofpdf.Fpdf, hdr []string) *gofpdf.Fpdf {
 	return pdf
 }
 
+// Special invoices to not be booked
+func nilBookedInv() map[int]bool {
+	return map[int]bool{128: true, 129: true, 131: true, 132: true}
+}
+
 func handleValues(db *storage.DBInstance, invoices []*BookedInvoice) []*PDFLine {
 	pdfLines := []*PDFLine{}
-	// totalVals := []*TotalVals{}
 	for _, invoice := range invoices {
 		for _, line := range invoice.Lines {
-			// If the line number is not the sortkey
-			line = line.handleIfWrongLineNumber(invoice)
-			// If line and sortkey checks out
-			if line.LineNumber == line.SortKey && line.LineNumber == productLineNumber {
-				product, err := storage.GetSubscriptionProducts(db, line.Product.ProductNumber)
-				if err != nil {
-					log.Panicf("Didnt get products from FB: %s", err)
-				}
-				product.Credits = line.handleIfPAYGCredits(product)
+			if nilBookedInv()[invoice.BookedInvoiceNumber] != true {
+				fmt.Printf("Didn't book invoice#: %v", invoice.BookedInvoiceNumber)
+				// If the line number is not the sortkey
+				line = line.handleIfWrongLineNumber(invoice)
+				// If line and sortkey checks out
+				if line.LineNumber == line.SortKey && line.LineNumber == productLineNumber {
+					product, err := storage.GetSubscriptionProducts(db, line.Product.ProductNumber)
+					if err != nil {
+						log.Panicf("Didnt get products from FB: %s", err)
+					}
+					product.Credits = line.handleIfPAYGCredits(product)
+					product = line.isYearlyProduct(product)
+					line = line.isEuroAmount(invoice)
 
-				pdfLine := &PDFLine{
-					InvoiceNum:   invoice.BookedInvoiceNumber,
-					Recipient:    invoice.Recipient,
-					Date:         invoice.Date,
-					MaxSellerCut: line.maxSellerCut(product),
-					MinByrdInc:   line.minByrdInc(product),
-					Period:       setPeriod(product.Period),
-					VAT:          invoice.applyTax(line),
-					NetAmount:    invoice.netAmount(line),
+					pdfLine := PDFLine{
+						InvoiceNum:   invoice.BookedInvoiceNumber,
+						Recipient:    invoice.Recipient,
+						MaxSellerCut: line.maxSellerCut(product),
+						MinByrdInc:   line.minByrdInc(product),
+						Period:       setPeriod(product.Period),
+						VAT:          invoice.applyTax(line),
+						NetAmount:    line.TotalNetAmount,
+					}
+					fmt.Printf("Credits: %v. VAT: %v. Period: %s \n", product.Credits, pdfLine.VAT, pdfLine.Period)
+					pdfLines = append(pdfLines, &pdfLine)
 				}
-				fmt.Printf("Credits: %v. VAT: %v. Period: %s \n", product.Credits, pdfLine.VAT, pdfLine.Period)
-				pdfLines = append(pdfLines, pdfLine)
 			}
 		}
 	}
@@ -214,30 +223,37 @@ func createPDF(pdf *gofpdf.Fpdf) ([]byte, error) {
 
 }
 
+func (l *Lines) isEuroAmount(i *BookedInvoice) *Lines {
+	if i.Currency == eur {
+		l.TotalNetAmount *= euroToDKKPrice
+	}
+	return l
+}
+
+func (l *Lines) isYearlyProduct(p *storage.SubscriptionProduct) *storage.SubscriptionProduct {
+	if p.Period == year {
+		p.Credits *= 12
+	}
+	return p
+}
+
 func (l *Lines) minByrdInc(p *storage.SubscriptionProduct) float64 {
-	if p.Credits != unlimitedAmountCredits {
-		return l.TotalNetAmount - l.maxSellerCut(p)
+	if p.Credits != unlimitedAmountCredits && l.TotalNetAmount > 0 {
+		value := l.TotalNetAmount - math.Abs(l.maxSellerCut(p))
+		if value < 0 {
+			return 0
+		}
+		return value
 	}
 	return 0
 }
 
 func (l *Lines) maxSellerCut(p *storage.SubscriptionProduct) float64 {
-	if p.Credits != unlimitedAmountCredits {
+	if p.Credits != unlimitedAmountCredits && l.TotalNetAmount > 0 {
 		totalAmt := (photographerCut * euroToDKKPrice) * parseIntToFloat(p.Credits)
 		return totalAmt
 	}
 	return 0
-}
-
-func calcYearCreditAmount(p *storage.SubscriptionProduct) int {
-	return p.Credits * 12
-}
-
-func (i *BookedInvoice) netAmount(l *Lines) float64 {
-	if i.Currency != dkk {
-		l.TotalNetAmount *= euroToDKKPrice
-	}
-	return l.TotalNetAmount
 }
 
 func setPeriod(p string) string {
