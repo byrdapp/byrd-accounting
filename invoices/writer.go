@@ -116,8 +116,8 @@ func handleValues(db *storage.DBInstance, invoices []*BookedInvoice) []*PDFLine 
 					InvoiceNum:   invoice.BookedInvoiceNumber,
 					Recipient:    invoice.Recipient,
 					Date:         invoice.Date,
-					MaxSellerCut: maxSellerCut(product),
-					MinByrdInc:   invoice.minByrdInc(line, product),
+					MaxSellerCut: line.maxSellerCut(product),
+					MinByrdInc:   line.minByrdInc(product),
 					Period:       setPeriod(product.Period),
 					VAT:          invoice.applyTax(line),
 					NetAmount:    invoice.netAmount(line),
@@ -214,21 +214,17 @@ func createPDF(pdf *gofpdf.Fpdf) ([]byte, error) {
 
 }
 
-func (i *BookedInvoice) minByrdInc(l *Lines, p *storage.SubscriptionProduct) float64 {
+func (l *Lines) minByrdInc(p *storage.SubscriptionProduct) float64 {
 	if p.Credits != unlimitedAmountCredits {
-		return l.TotalNetAmount - maxSellerCut(p)
+		return l.TotalNetAmount - l.maxSellerCut(p)
 	}
 	return 0
 }
 
-func maxSellerCut(p *storage.SubscriptionProduct) float64 {
+func (l *Lines) maxSellerCut(p *storage.SubscriptionProduct) float64 {
 	if p.Credits != unlimitedAmountCredits {
-		if p.Period == year {
-			p.Credits = calcYearCreditAmount(p)
-		}
-		creditDKKPrice := photographerCut * euroToDKKPrice
-		creditsAmt := parseIntToFloat(p.Credits)
-		return creditDKKPrice * creditsAmt
+		totalAmt := (photographerCut * euroToDKKPrice) * parseIntToFloat(p.Credits)
+		return totalAmt
 	}
 	return 0
 }

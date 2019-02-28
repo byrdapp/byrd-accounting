@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/byblix/byrd-accounting/invoices"
 	"github.com/byblix/byrd-accounting/slack"
 	"github.com/byblix/byrd-accounting/storage"
@@ -28,8 +27,8 @@ func init() {
 // 2. Uden om platformen
 func main() {
 	/* Run shellscript: `$ sh create-lambda.sh` for docker deploy */
-	lambda.Start(HandleRequest)
-	// HandleRequest() // 	testing:
+	// lambda.Start(HandleRequest)
+	HandleRequest() // 	testing:
 }
 
 // HandleRequest -
