@@ -64,7 +64,7 @@ func CreateInvoice(d *invoices.DateRange) []byte {
 // StoreOnAWS Store the PDF on AWS
 func StoreOnAWS(file []byte, d *invoices.DateRange) (string, error) {
 	// Upload Mem PDF to S3
-	dirName, err := storage.NewUpload(file, d.To)
+	dirName, err := storage.NewUpload(file, d.From)
 	if err != nil {
 		return "", err
 	}
