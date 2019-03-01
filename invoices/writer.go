@@ -124,6 +124,7 @@ func handleValues(db *storage.DBInstance, invoices []*BookedInvoice) []*PDFLine 
 					pdfLine := PDFLine{
 						InvoiceNum:   invoice.BookedInvoiceNumber,
 						Recipient:    invoice.Recipient,
+						Date:         invoice.Date,
 						MaxSellerCut: line.maxSellerCut(product),
 						MinByrdInc:   line.minByrdInc(product),
 						Period:       setPeriod(product.Period),
